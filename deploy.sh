@@ -62,8 +62,17 @@ EOF
 
 join_cluster() {
   profile=$1
-  : "${K3S_URL:?set K3S_URL, printed by deploy.sh init_cluster}"
-  : "${K3S_TOKEN:?set K3S_TOKEN, printed by deploy.sh init_cluster}"
+  if [ -z "${K3S_URL:-}" ]; then
+    printf 'K3S_URL (https://<core>:6443): ' >&2
+    read -r K3S_URL
+  fi
+  if [ -z "${K3S_TOKEN:-}" ]; then
+    printf 'K3S_TOKEN: ' >&2
+    read -r -s K3S_TOKEN
+    printf '\n' >&2
+  fi
+  : "${K3S_URL:?K3S_URL is empty}"
+  : "${K3S_TOKEN:?K3S_TOKEN is empty}"
 
   curl -sfL https://get.k3s.io |
     K3S_URL="$K3S_URL" K3S_TOKEN="$K3S_TOKEN" \
