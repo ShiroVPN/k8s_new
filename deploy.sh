@@ -9,6 +9,8 @@ NAMESPACE=shiro
 
 k() { sudo k3s kubectl "$@"; }
 
+node_name() { hostname | tr '[:upper:]' '[:lower:]'; }
+
 init_cluster() {
   if ! command -v k3s >/dev/null; then
     curl -sfL https://get.k3s.io |
@@ -16,7 +18,7 @@ init_cluster() {
       INSTALL_K3S_EXEC="server --disable=traefik --disable=servicelb" sh -
   fi
   sudo systemctl enable --now k3s
-  node=$(hostname)
+  node=$(node_name)
   k wait --for=create node/"$node" --timeout=120s
   k wait --for=condition=Ready node/"$node" --timeout=120s
   k label node "$node" shiro.io/core=true --overwrite
@@ -117,7 +119,7 @@ EOF
 
 label() {
   profile=$1
-  k label node "$(hostname)" "shiro.io/$profile=true" --overwrite
+  k label node "$(node_name)" "shiro.io/$profile=true" --overwrite
 }
 
 run() {
