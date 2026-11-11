@@ -2,7 +2,7 @@
 
 Манифесты ядра и VPN-нод из репозитория `deploy`, переложенные в kustomize +
 Argo CD по образцу `k8s-toy`. Папка пока не git-репозиторий: её содержимое
-задумано как корень репозитория `ShiroVPN/k8s`, поэтому `repoURL` в
+задумано как корень репозитория `ShiroVPN/k8s_new`, поэтому `repoURL` в
 `argocd/*.yaml` указывает туда.
 
 Две единицы деплоя, как и в compose:
@@ -145,15 +145,15 @@ Secret в namespace того overlay, который его подключает
 ## Всё на одном сервере
 
 ```bash
-git clone git@github.com/ShiroVPN/k8s.git
-cd k8s
+git clone git@github.com/ShiroVPN/k8s_new.git
+cd k8s_new
 ./deploy.sh init_cluster
 ./deploy.sh run --profile core
 ./deploy.sh run --profile peerhub-wg
 ```
 
-Потом в панели Argo CD: добавить приватный репозиторий (Settings →
-Repositories, PAT с правом чтения) и нажать **Sync** у `core`, затем у
+Репозиторий публичный, доступ Argo CD настраивать не нужно: панель
+сама склонирует его по `repoURL`. Нажать **Sync** у `core`, затем у
 `peerhub-wg`. `init_cluster` берёт ключ из `SOPS_AGE_KEY_FILE` или
 `~/.config/sops/age/keys.txt`, ставит Argo CD и KSOPS и создаёт `sops-age`.
 Ключ разработчика попадает на машину с Argo CD один раз, копией:

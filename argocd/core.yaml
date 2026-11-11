@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/ShiroVPN/k8s.git
+    repoURL: https://github.com/ShiroVPN/k8s_new.git
     targetRevision: main
     path: overlays/core
     kustomize:

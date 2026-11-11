@@ -49,15 +49,12 @@ Argo CD panel:
   https://localhost:18080  admin
   password: sudo k3s kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
 
-repo for Argo CD: panel -> Settings -> Repositories -> Connect repo,
-  https://github.com/ShiroVPN/k8s.git, PAT with repo read
-
 applications:
   ./deploy.sh run --profile core
   ./deploy.sh run --profile peerhub-wg
 
 new VPN node:
-  git clone git@github.com:ShiroVPN/k8s.git
+  git clone git@github.com:ShiroVPN/k8s_new.git
   K3S_URL=https://$ip:6443 K3S_TOKEN=$token ./deploy.sh join_cluster --profile peerhub-wg-2
   ports 6443 to the core, 8472/udp and 10250/tcp both ways - see README
 EOF
