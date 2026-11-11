@@ -44,6 +44,8 @@ init_cluster() {
 
   ip=$(k get nodes -o jsonpath='{range .items[0].status.addresses[?(@.type=="InternalIP")]}{.address}{"\n"}{end}' | head -n1)
   token=$(sudo cat /var/lib/rancher/k3s/server/node-token)
+  password=$(k -n argocd get secret argocd-initial-admin-secret \
+    -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
 
   cat <<EOF
 
@@ -51,7 +53,7 @@ Argo CD panel:
   sudo k3s kubectl -n argocd port-forward svc/argocd-server 18080:443 --address 127.0.0.1
   ssh -L 18080:127.0.0.1:18080 <this server>
   https://localhost:18080  admin
-  password: sudo k3s kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+  password: ${password:-<argocd-initial-admin-secret not found>}
 
 applications:
   ./deploy.sh run --profile core
@@ -59,7 +61,7 @@ applications:
 
 new VPN node:
   git clone git@github.com:ShiroVPN/k8s_new.git
-  K3S_URL=https://$ip:6443 K3S_TOKEN=$token ./deploy.sh join_cluster --profile peerhub-wg-2
+  K3S_URL=https://$ip:6443 K3S_TOKEN=$token ./deploy.sh join_cluster --profile peerhub-wg
   ports 6443 to the core, 8472/udp and 10250/tcp both ways - see README
 EOF
 }
