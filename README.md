@@ -44,12 +44,13 @@ overlays/peerhub-wg/        namespace shiro-peerhub-wg, peerhub-config, ksops.ya
 argocd/                     Application'ы core и peerhub-wg + KSOPS-патч repo-server
 .sops.yaml                  recipients (age) и что шифровать
 secrets/                    примеры Secret'ов (открытые) и *.enc.yaml (в git)
-deploy.sh                   init_cluster | join_cluster --profile | run --profile
+deploy.sh                   init_cluster | join_cluster | label | run (--profile)
 ```
 
 Профиль — это метка узла `shiro.io/<profile>=true`. Одна машина может нести
 несколько профилей: после `init_cluster` на ней стоит `shiro.io/core=true`, и
-та же машина получает `shiro.io/peerhub-wg=true` одной командой. У каждой
+та же машина получает `shiro.io/peerhub-wg=true` командой
+`./deploy.sh label --profile peerhub-wg`. У каждой
 следующей VPN-ноды своё имя профиля (`peerhub-wg-2`), потому что `PEERHUB_ID`,
 `COUNTRY`, `SERVER_NAME`, `WG_HOST` у неё свои.
 
@@ -148,9 +149,16 @@ Secret в namespace того overlay, который его подключает
 git clone git@github.com/ShiroVPN/k8s_new.git
 cd k8s_new
 ./deploy.sh init_cluster
+./deploy.sh label --profile peerhub-wg
 ./deploy.sh run --profile core
 ./deploy.sh run --profile peerhub-wg
 ```
+
+`run --profile peerhub-wg` спросит `PEERHUB_ID` (предложит uuid), `COUNTRY`,
+`SERVER_NAME`, `WG_HOST` и `WG_PORT` и запишет их в
+`overlays/peerhub-wg/peerhub-config.yaml` — закоммитить и запушить до Sync.
+На машине без публичного IP в `WG_HOST` вписать `0.0.0.0`: конфиги клиентов с
+таким Endpoint не заработают, но стек и бот поднимутся.
 
 Репозиторий публичный, доступ Argo CD настраивать не нужно: панель
 сама склонирует его по `repoURL`. Нажать **Sync** у `core`, затем у
@@ -173,9 +181,8 @@ SOPS_AGE_KEY_FILE=/path/to/age.agekey ./deploy.sh init_cluster
 
 - `manifests/core/config/core.yaml` — `WEBHOOK_DOMAIN`, `MINI_APP_DOMAIN`,
   `STUB_PAYMENT`, `ADMIN_TELEGRAM_IDS`.
-- `overlays/peerhub-wg/peerhub-config.yaml` — `PEERHUB_ID`
-  (`cat /proc/sys/kernel/random/uuid`), `COUNTRY`, `SERVER_NAME`, `WG_HOST`,
-  `WG_PORT`.
+- `overlays/peerhub-wg/peerhub-config.yaml` — `PEERHUB_ID` (uuid предложит
+  `run --profile peerhub-wg`), `COUNTRY`, `SERVER_NAME`, `WG_HOST`, `WG_PORT`.
 
 Закоммитить и запушить в `main` — Argo тянет оттуда. Namespace'ы
 `shiro`/`shiro-peerhub-wg` создаются синхронизацией, вручную их создавать не

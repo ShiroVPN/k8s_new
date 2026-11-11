@@ -74,8 +74,46 @@ join_cluster() {
   echo "joined $K3S_URL as shiro.io/$profile=true"
 }
 
+peerhub_configure() {
+  file="overlays/$1/peerhub-config.yaml"
+  [ -f "$file" ] || return 0
+  grep -q 'PEERHUB_ID: "00000000' "$file" || return 0
+
+  default_id=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
+  read -r -p "PEERHUB_ID [$default_id]: " peerhub_id
+  peerhub_id=${peerhub_id:-$default_id}
+  read -r -p "COUNTRY (max 15) [Germany]: " country
+  country=${country:-Germany}
+  read -r -p "SERVER_NAME (max 15) [local]: " server_name
+  server_name=${server_name:-local}
+  read -r -p "WG_HOST [0.0.0.0]: " wg_host
+  wg_host=${wg_host:-0.0.0.0}
+  read -r -p "WG_PORT [51820]: " wg_port
+  wg_port=${wg_port:-51820}
+
+  cat > "$file" <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peerhub-config
+data:
+  PEERHUB_ID: "$peerhub_id"
+  COUNTRY: "$country"
+  SERVER_NAME: "$server_name"
+  WG_HOST: "$wg_host"
+  WG_PORT: "$wg_port"
+EOF
+  echo "wrote $file; commit and push it before Sync"
+}
+
+label() {
+  profile=$1
+  k label node "$(hostname)" "shiro.io/$profile=true" --overwrite
+}
+
 run() {
   profile=$1
+  peerhub_configure "$profile"
   k apply -f "argocd/$profile.yaml"
   k -n argocd get application "$profile"
   echo "sync it by hand in the Argo CD panel: $profile"
@@ -84,9 +122,10 @@ run() {
 case "${1:-}" in
 init_cluster) init_cluster ;;
 join_cluster) join_cluster "${3:?usage: $0 join_cluster --profile <name>}" ;;
+label) label "${3:?usage: $0 label --profile <name>}" ;;
 run) run "${3:?usage: $0 run --profile <name>}" ;;
 *)
-  echo "usage: $0 init_cluster | join_cluster --profile <name> | run --profile <name>"
+  echo "usage: $0 init_cluster | join_cluster --profile <name> | label --profile <name> | run --profile <name>"
   exit 1
   ;;
 esac
