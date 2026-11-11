@@ -18,7 +18,7 @@ spec:
         - name: ghcr
       containers:
         - name: bot
-          image: ghcr.io/shirovpn/botv2:0.1.17
+          image: ghcr.io/shirovpn/botv2:0.1.21
           ports:
             - containerPort: 8080
           env:

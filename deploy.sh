@@ -28,6 +28,8 @@ init_cluster() {
   k apply --server-side -n argocd -f \
     "https://raw.githubusercontent.com/argoproj/argo-cd/$ARGOCD_VERSION/manifests/install.yaml"
   k -n argocd rollout status deploy/argocd-server --timeout=300s
+  k -n argocd patch configmap argocd-cm --type merge \
+    -p '{"data":{"kustomize.buildOptions":"--enable-alpha-plugins --enable-exec"}}'
 
   key=${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}
   if [ ! -f "$key" ]; then

@@ -9,8 +9,6 @@ spec:
     repoURL: https://github.com/ShiroVPN/k8s_new.git
     targetRevision: main
     path: overlays/core
-    kustomize:
-      buildOptions: "--enable-alpha-plugins --enable-exec"
   destination:
     server: https://kubernetes.default.svc
     namespace: shiro

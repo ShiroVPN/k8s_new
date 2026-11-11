@@ -18,7 +18,7 @@ spec:
         - name: ghcr
       initContainers:
         - name: migrate
-          image: ghcr.io/shirovpn/main_api_worker:0.0.19
+          image: ghcr.io/shirovpn/main_api_worker:0.0.23
           command: ["/venv/bin/alembic", "upgrade", "head"]
           env:
             - name: DATABASE_URL
@@ -28,7 +28,7 @@ spec:
                   key: DATABASE_URL
       containers:
         - name: main-api-worker
-          image: ghcr.io/shirovpn/main_api_worker:0.0.19
+          image: ghcr.io/shirovpn/main_api_worker:0.0.23
           env:
             - name: DATABASE_URL
               valueFrom:

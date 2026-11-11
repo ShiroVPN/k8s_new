@@ -18,7 +18,7 @@ spec:
         - name: ghcr
       containers:
         - name: main-api-webhook
-          image: ghcr.io/shirovpn/main_api_worker:0.0.19
+          image: ghcr.io/shirovpn/main_api_worker:0.0.23
           command:
             - /venv/bin/python
             - -m
