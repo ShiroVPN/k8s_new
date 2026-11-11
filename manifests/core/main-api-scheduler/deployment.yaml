@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: main-api-scheduler
+  labels:
+    app: main-api-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: main-api-scheduler
+  template:
+    metadata:
+      labels:
+        app: main-api-scheduler
+    spec:
+      imagePullSecrets:
+        - name: ghcr
+      containers:
+        - name: main-api-scheduler
+          image: ghcr.io/shirovpn/main_api_worker:0.0.19
+          command:
+            - /venv/bin/taskiq
+            - scheduler
+            - main_api_worker.scheduler:scheduler
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: DATABASE_URL
+            - name: BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: BROKER_URL
+            - name: BACKEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: BACKEND_URL
+            - name: CONFIG_PATH
+              value: /config/config.yml
+            - name: PEERHUB_WORKER_WAIT_RESULT_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: core-config
+                  key: PEERHUB_WORKER_WAIT_RESULT_TIMEOUT
+            - name: PEERHUB_LAST_SEEN_LIMIT_IN_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  name: core-config
+                  key: PEERHUB_LAST_SEEN_LIMIT_IN_SECONDS
+            - name: PLATEGA_MERCHANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: PLATEGA_MERCHANT_ID
+            - name: PLATEGA_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: PLATEGA_SECRET
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+      volumes:
+        - name: config
+          configMap:
+            name: main-api-config
+            items:
+              - key: config.yml
+                path: config.yml

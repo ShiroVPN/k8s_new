@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: peerhub-heartbeat
+  labels:
+    app: peerhub-heartbeat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: peerhub-heartbeat
+  template:
+    metadata:
+      labels:
+        app: peerhub-heartbeat
+    spec:
+      imagePullSecrets:
+        - name: ghcr
+      containers:
+        - name: peerhub-heartbeat
+          image: ghcr.io/shirovpn/peerhub_heartbeat:v0.2.0
+          env:
+            - name: BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: BROKER_URL
+            - name: BACKEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: BACKEND_URL
+            - name: PEERHUB_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: PEERHUB_ID
+            - name: COUNTRY
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: COUNTRY
+            - name: SERVER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: SERVER_NAME
+            - name: HEARTBEAT_INTERVAL_IN_SECONDS
+              value: "60"
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi

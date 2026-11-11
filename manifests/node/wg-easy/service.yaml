@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: wg-easy
+  labels:
+    app: wg-easy
+spec:
+  selector:
+    app: wg-easy
+  ports:
+    - port: 51821
+      targetPort: 51821

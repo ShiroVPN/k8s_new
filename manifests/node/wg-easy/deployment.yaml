@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wg-easy
+  labels:
+    app: wg-easy
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: wg-easy
+  template:
+    metadata:
+      labels:
+        app: wg-easy
+    spec:
+      hostNetwork: true
+      dnsPolicy: Default
+      containers:
+        - name: wg-easy
+          image: ghcr.io/wg-easy/wg-easy:15.4.0
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+                - SYS_MODULE
+          env:
+            - name: INIT_ENABLED
+              value: "true"
+            - name: INIT_USERNAME
+              value: admin
+            - name: INIT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: WG_EASY_PASSWORD
+            - name: INIT_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: WG_HOST
+            - name: INIT_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: WG_PORT
+            - name: INIT_IPV4_CIDR
+              value: 10.8.0.0/20
+            - name: INIT_IPV6_CIDR
+              value: fdcc:ad94:bacf:61a4::cafe:0/112
+            - name: INSECURE
+              value: "true"
+          ports:
+            - containerPort: 51820
+              protocol: UDP
+            - containerPort: 51821
+          volumeMounts:
+            - name: data
+              mountPath: /etc/wireguard
+            - name: modules
+              mountPath: /lib/modules
+              readOnly: true
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "wg show | grep -q interface"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: wg-easy-data
+        - name: modules
+          hostPath:
+            path: /lib/modules

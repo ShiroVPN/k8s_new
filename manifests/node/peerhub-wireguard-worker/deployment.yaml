@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: peerhub-wireguard-worker
+  labels:
+    app: peerhub-wireguard-worker
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: peerhub-wireguard-worker
+  template:
+    metadata:
+      labels:
+        app: peerhub-wireguard-worker
+    spec:
+      imagePullSecrets:
+        - name: ghcr
+      containers:
+        - name: peerhub-wireguard-worker
+          image: ghcr.io/shirovpn/peerhub_wireguard_worker:0.0.11
+          env:
+            - name: BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: BROKER_URL
+            - name: BACKEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: BACKEND_URL
+            - name: BROKER_RESULT_BACKEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: BACKEND_URL
+            - name: WG_EASY_URL
+              value: http://wg-easy:51821
+            - name: WG_EASY_USERNAME
+              value: admin
+            - name: WG_EASY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: WG_EASY_PASSWORD
+            - name: PEERHUB_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: PEERHUB_ID
+            - name: KV_STORE_FILE
+              value: /data/database.yml
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: peerhub-data

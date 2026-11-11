@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wg-easy-hooks-config
+data:
+  hooks.mjs: |
+    const F =
+      "iptables -I INPUT -i wg0 -p tcp --dport 51821 -j DROP; " +
+      "iptables -I FORWARD -i wg0 -d 10.0.0.0/8 -j DROP; " +
+      "iptables -I FORWARD -i wg0 -d 172.16.0.0/12 -j DROP; " +
+      "iptables -I FORWARD -i wg0 -d 192.168.0.0/16 -j DROP; " +
+      "iptables -I FORWARD -i wg0 -d 100.64.0.0/10 -j DROP;";
+
+    const url = `${process.env.WG_EASY_URL}/api/admin/hooks`;
+    const auth =
+      "Basic " +
+      Buffer.from("admin:" + process.env.WG_EASY_PASSWORD).toString("base64");
+
+    let res;
+    for (let i = 0; i < 30 && !res; i++)
+      res = await fetch(url, { headers: { authorization: auth } }).catch(
+        () => new Promise((r) => setTimeout(r, 2000)),
+      );
+    if (!res?.ok) throw new Error(`GET hooks: ${res?.status}`);
+
+    const hooks = await res.json();
+    if (hooks.postUp.startsWith(F)) {
+      console.log("hooks already set");
+      process.exit(0);
+    }
+
+    const post = await fetch(url, {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/json" },
+      body: JSON.stringify({
+        preUp: hooks.preUp,
+        postUp: F + " " + hooks.postUp,
+        preDown: hooks.preDown,
+        postDown: hooks.postDown,
+      }),
+    });
+    if (!post.ok) throw new Error(`POST hooks: ${post.status} ${await post.text()}`);
+    console.log("hooks updated; restart wg-easy once so PostUp runs");

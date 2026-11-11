@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: main-api-config
+data:
+  config.yml: |
+    trial_subscription:
+      name: Пробная
+      cost: 0
+      timedelta_in_seconds: 604800
+
+    subscription_options:
+      - name: Одиночка
+        cost: 100
+        timedelta_in_seconds: 1296000
+
+      - name: Стабильность
+        cost: 180
+        timedelta_in_seconds: 2592000
+        referral_bonus: true
+
+    referral:
+      bonus: 30
+      trial_subscription:
+        name: Компания
+        cost: 0
+        timedelta_in_seconds: 1209600
+
+    beta_features: []

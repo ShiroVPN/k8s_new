@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wg-easy-hooks
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: hooks
+          image: ghcr.io/wg-easy/wg-easy:15.4.0
+          command: ["node", "/scripts/hooks.mjs"]
+          env:
+            - name: WG_EASY_URL
+              value: http://wg-easy:51821
+            - name: WG_EASY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: WG_EASY_PASSWORD
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: wg-easy-hooks-config

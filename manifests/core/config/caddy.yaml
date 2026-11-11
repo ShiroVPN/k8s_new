@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: caddy-config
+data:
+  Caddyfile: |
+    {$WEBHOOK_DOMAIN} {
+            @platega {
+                    method POST
+                    path /platega/callback
+                    remote_ip 116.202.184.149
+            }
+            handle @platega {
+                    reverse_proxy main-api-webhook:8080
+            }
+            handle {
+                    respond 404
+            }
+    }
+
+    {$MINI_APP_DOMAIN} {
+            reverse_proxy bot:8080
+    }

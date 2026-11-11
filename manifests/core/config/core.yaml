@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: core-config
+data:
+  WEBHOOK_DOMAIN: "webhook.example.com"
+  MINI_APP_DOMAIN: "app.webhook.example.com"
+  STUB_PAYMENT: "1"
+  ADMIN_TELEGRAM_IDS: ""
+  PEERHUB_WORKER_WAIT_RESULT_TIMEOUT: "10"
+  PEERHUB_LAST_SEEN_LIMIT_IN_SECONDS: "180"

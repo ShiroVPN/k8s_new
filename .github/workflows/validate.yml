@@ -1,0 +1,28 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  kustomize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: azure/setup-kubectl@v4
+
+      - name: Build bases
+        run: |
+          for dir in manifests/core manifests/node; do
+            kubectl kustomize "$dir" >/dev/null
+            echo "ok $dir"
+          done

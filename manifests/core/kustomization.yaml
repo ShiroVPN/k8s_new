@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - config/core.yaml
+  - config/main-api.yaml
+  - config/caddy.yaml
+  - postgres/pvc.yaml
+  - postgres/deployment.yaml
+  - postgres/service.yaml
+  - rabbitmq/pvc.yaml
+  - rabbitmq/deployment.yaml
+  - rabbitmq/service.yaml
+  - redis/deployment.yaml
+  - redis/service.yaml
+  - main-api-worker/deployment.yaml
+  - main-api-scheduler/deployment.yaml
+  - main-api-webhook/deployment.yaml
+  - main-api-webhook/service.yaml
+  - bot/deployment.yaml
+  - bot/service.yaml
+  - caddy/pvc.yaml
+  - caddy/deployment.yaml
+  - cloudbeaver/pvc.yaml
+  - cloudbeaver/deployment.yaml
+  - cloudbeaver/service.yaml

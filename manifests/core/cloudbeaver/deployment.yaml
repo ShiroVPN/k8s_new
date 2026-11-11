@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudbeaver
+  labels:
+    app: cloudbeaver
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: cloudbeaver
+  template:
+    metadata:
+      labels:
+        app: cloudbeaver
+    spec:
+      containers:
+        - name: cloudbeaver
+          image: dbeaver/cloudbeaver:26.2.4
+          ports:
+            - containerPort: 8978
+          env:
+            - name: CB_ADMIN_NAME
+              value: admin
+            - name: CB_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: CB_ADMIN_PASSWORD
+            - name: CB_SERVER_NAME
+              value: shiro
+          volumeMounts:
+            - name: data
+              mountPath: /opt/cloudbeaver/workspace
+          readinessProbe:
+            tcpSocket:
+              port: 8978
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: cloudbeaver-data
