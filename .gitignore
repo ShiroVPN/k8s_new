@@ -2,3 +2,4 @@ secrets/*.yaml
 !secrets/*.example.yaml
 !secrets/*.enc.yaml
 *.agekey
+overlays/*/peerhub-config.yaml
