@@ -90,23 +90,27 @@ join_cluster() {
 }
 
 peerhub_configure() {
-  file="overlays/$1/peerhub-config.yaml"
-  [ -f "$file" ] || return 0
-  grep -q 'PEERHUB_ID: "00000000' "$file" || return 0
+  profile=$1
+  case $profile in
+  peerhub-*) ;;
+  *) return 0 ;;
+  esac
 
-  default_id=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
-  read -r -p "PEERHUB_ID [$default_id]: " peerhub_id
-  peerhub_id=${peerhub_id:-$default_id}
-  read -r -p "COUNTRY (max 15) [Germany]: " country
-  country=${country:-Germany}
-  read -r -p "SERVER_NAME (max 15) [local]: " server_name
-  server_name=${server_name:-local}
-  read -r -p "WG_HOST [0.0.0.0]: " wg_host
-  wg_host=${wg_host:-0.0.0.0}
-  read -r -p "WG_PORT [51820]: " wg_port
-  wg_port=${wg_port:-51820}
+  file="overlays/$profile/peerhub-config.yaml"
+  if [ ! -f "$file" ]; then
+    default_id=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
+    read -r -p "PEERHUB_ID [$default_id]: " peerhub_id
+    peerhub_id=${peerhub_id:-$default_id}
+    read -r -p "COUNTRY (max 15) [Germany]: " country
+    country=${country:-Germany}
+    read -r -p "SERVER_NAME (max 15) [local]: " server_name
+    server_name=${server_name:-local}
+    read -r -p "WG_HOST [0.0.0.0]: " wg_host
+    wg_host=${wg_host:-0.0.0.0}
+    read -r -p "WG_PORT [51820]: " wg_port
+    wg_port=${wg_port:-51820}
 
-  cat > "$file" <<EOF
+    cat > "$file" <<EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -118,7 +122,12 @@ data:
   WG_HOST: "$wg_host"
   WG_PORT: "$wg_port"
 EOF
-  echo "wrote $file; commit and push it before Sync"
+    echo "wrote $file"
+  fi
+
+  namespace="shiro-$profile"
+  k create namespace "$namespace" --dry-run=client -o yaml | k apply -f -
+  k apply -n "$namespace" -f "$file"
 }
 
 label() {

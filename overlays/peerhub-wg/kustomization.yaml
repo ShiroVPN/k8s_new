@@ -5,7 +5,6 @@ namespace: shiro-peerhub-wg
 
 resources:
   - ../../manifests/node
-  - peerhub-config.yaml
 
 generators:
   - ksops.yaml
