@@ -14,13 +14,15 @@ spec:
       labels:
         app: bot
     spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       imagePullSecrets:
         - name: ghcr
       containers:
         - name: bot
           image: ghcr.io/shirovpn/botv2:0.1.21
           ports:
-            - containerPort: 8080
+            - containerPort: 18088
           env:
             - name: BROKER_URL
               valueFrom:
@@ -52,7 +54,7 @@ spec:
                   name: core-config
                   key: ADMIN_TELEGRAM_IDS
             - name: WEBAPP_PORT
-              value: "8080"
+              value: "18088"
             - name: MINI_APP_DOMAIN
               valueFrom:
                 configMapKeyRef:
@@ -62,7 +64,7 @@ spec:
               value: https://$(MINI_APP_DOMAIN)
           readinessProbe:
             tcpSocket:
-              port: 8080
+              port: 18088
             initialDelaySeconds: 10
             periodSeconds: 5
           resources:
