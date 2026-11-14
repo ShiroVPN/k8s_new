@@ -376,9 +376,13 @@ read udp 10.42.0.12:36158->10.43.0.10:53: read: connection refused
 Проверить, что адрес кластера уходит в туннель:
 
 ```bash
-ip route get 10.43.0.10            # должен быть локальный маршрут, не tun/wg
-sudo k3s kubectl -n argocd exec deploy/argocd-server -- nslookup argocd-repo-server
+./dev.sh diagnose                  # маршруты, CoreDNS, его endpoints, PVC
 ```
+
+В выводе важны две строки: `ip route get 10.43.0.10` должен показывать
+локальный маршрут (не `tun`/`wg`/`v2raya`), а `get endpoints kube-dns` должен
+содержать IP пода CoreDNS. Пустой список endpoints и есть причина
+`connection refused`: kube-proxy отбивает запросы к сервису без эндпоинтов.
 
 Лечится на стороне VPN: завернуть приватные адреса в `direct`. В RoutingA у
 v2raya достаточно одной строки над `default`:
@@ -387,6 +391,10 @@ v2raya достаточно одной строки над `default`:
 ip(geoip:private) -> direct
 default: proxy
 ```
+
+Если RoutingA не используется, помогает переключить исходящий режим v2raya с
+`tproxy` на `system proxy`: правила netfilter при этом не ставятся и трафик
+подов никто не перехватывает.
 
 То же самое делают галочки «Bypass LAN»/«Пропускать локальные адреса» в
 других клиентах. Менять CIDR кластера смысла нет: `geoip:private` покрывает

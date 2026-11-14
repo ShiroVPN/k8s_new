@@ -47,6 +47,33 @@ status() {
   done
 }
 
+diagnose() {
+  echo "== host routing into the cluster"
+  ip route get 10.43.0.10 || true
+  ip rule show
+  grep -E '^nameserver' /etc/resolv.conf || true
+
+  echo
+  echo "== coredns"
+  sudo k3s kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide
+  sudo k3s kubectl -n kube-system get endpoints kube-dns
+  sudo k3s kubectl -n kube-system logs -l k8s-app=kube-dns --tail 20
+
+  echo
+  echo "== storage"
+  sudo k3s kubectl -n kube-system get pods |
+    grep -E 'local-path|helper' || echo "no local-path or helper pods"
+  sudo k3s kubectl get pvc -A
+
+  echo
+  echo "== images imported for dev"
+  sudo k3s ctr -n k8s.io images ls -q | grep 'dev-' || echo "none"
+
+  echo
+  echo "== applications"
+  status
+}
+
 restart() {
   components=${*:-$COMPONENTS}
   for component in $components; do
@@ -136,7 +163,7 @@ build() {
 }
 
 case "${1:-}" in
-build | pull | restart | status | logs | sync)
+build | pull | restart | status | logs | sync | diagnose)
   if [ "$(git branch --show-current)" != "$BRANCH" ]; then
     echo "run this on the $BRANCH branch"
     exit 1
@@ -150,6 +177,7 @@ build | pull | restart | status | logs | sync)
   status) status ;;
   logs) logs "$@" ;;
   sync) sync_main ;;
+  diagnose) diagnose ;;
   esac
   ;;
 *)
@@ -160,6 +188,7 @@ usage: $0 <command>
   restart [component...]   restart pods without rebuilding
   logs [component]         follow logs (default main-api-worker)
   status                   Argo CD applications and pods
+  diagnose                 DNS, storage and routing checks for a broken cluster
   pull                     git pull in the sibling app repositories
   sync                     rebase dev onto origin/main
 
