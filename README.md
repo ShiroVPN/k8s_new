@@ -1,21 +1,31 @@
 # k8s-new — ShiroVPN в Kubernetes
 
 Манифесты ядра и VPN-нод из репозитория `deploy`, переложенные в kustomize +
-Argo CD по образцу `k8s-toy`. Папка пока не git-репозиторий: её содержимое
-задумано как корень репозитория `ShiroVPN/k8s_new`, поэтому `repoURL` в
-`argocd/*.yaml` указывает туда.
+Argo CD по образцу `k8s-toy`. Корень репозитория `ShiroVPN/k8s_new`, поэтому
+`repoURL` в `argocd/*.yaml` указывает туда.
 
-Две единицы деплоя, как и в compose:
+Три единицы деплоя:
 
 ```
 namespace shiro                     namespace shiro-peerhub-wg
 ┌────────────────────────────┐      ┌────────────────────────────┐
-│ postgres  rabbitmq  redis  │◀─────│ peerhub-wireguard-worker   │
-│ main-api-worker+scheduler  │ amqp │ peerhub-heartbeat          │
-│ bot  main-api-webhook      │ redis│ wg-easy (hostNetwork)      │
-│ caddy (hostPort 80/443)    │      │ wg-easy-hooks (Job)        │
-│ cloudbeaver                │      └────────────────────────────┘
+│ deps: postgres rabbitmq    │◀─────│ peerhub-wireguard-worker   │
+│       redis                │ amqp │ peerhub-heartbeat          │
+│ apps: main-api-worker      │ redis│ wg-easy (hostNetwork)      │
+│       +scheduler +webhook  │      │ wg-easy-hooks (Job)        │
+│       bot                  │      └────────────────────────────┘
+│ aux:  caddy cloudbeaver    │
 └────────────────────────────┘
+                │ OTLP
+                ▼
+namespace observability
+┌──────────────────────────────────────┐
+│ otel-collector                       │
+│   traces → jaeger                    │
+│   metrics → prometheus (remote-write)│
+│   logs → elasticsearch               │
+│ grafana (datasources + 2 dashboards) │
+└──────────────────────────────────────┘
 ```
 
 ## Раскладка
@@ -25,26 +35,38 @@ namespace shiro                     namespace shiro-peerhub-wg
 ```
 manifests/core/
   config/             core-config, main-api-config (config.yml), caddy-config (Caddyfile)
-  postgres/           pvc, deployment, service
-  rabbitmq/           pvc, deployment, service
-  redis/              deployment, service
-  main-api-worker/    deployment (+ init-контейнер migrate)
-  main-api-scheduler/ deployment
-  main-api-webhook/   deployment, service
-  bot/                deployment, service
-  caddy/              pvc, deployment
-  cloudbeaver/        pvc, deployment, service
+  deps/               открытое, что мы только запускаем
+    postgres/         pvc, deployment, service
+    rabbitmq/         pvc, deployment, service
+    redis/            deployment, service
+  aux/                панели и прокси вокруг стека
+    caddy/            pvc, deployment
+    cloudbeaver/      pvc, deployment, service
+  apps/               наш код
+    main-api-worker/    deployment (+ init-контейнер migrate)
+    main-api-scheduler/ deployment
+    main-api-webhook/   deployment, service
+    bot/                deployment, service
 manifests/node/
   wg-easy/                  pvc, deployment, service
   peerhub-wireguard-worker/ pvc, deployment
   peerhub-heartbeat/        deployment
   wg-easy-hooks/            configmap, job
+manifests/observability/
+  config/             otel-collector, prometheus, grafana provisioning
+  grafana/dashboards/ Function_calls.json, Logs.json (через configMapGenerator)
+  otel-collector/     deployment, service
+  jaeger/             deployment, service
+  prometheus/         pvc, deployment, service
+  elasticsearch/      pvc, deployment, service
+  grafana/            deployment, service
 overlays/core/              namespace shiro, nodeSelector, ksops.yaml
 overlays/peerhub-wg/        namespace shiro-peerhub-wg, peerhub-config, ksops.yaml
-argocd/                     Application'ы core и peerhub-wg + KSOPS-патч repo-server
+overlays/observability/     namespace observability, nodeSelector, ksops.yaml
+argocd/                     Application'ы core, peerhub-wg, observability + KSOPS-патч
 .sops.yaml                  recipients (age) и что шифровать
 secrets/                    примеры Secret'ов (открытые) и *.enc.yaml (в git)
-deploy.sh                   init_cluster | join_cluster | label | run (--profile)
+deploy.sh                   init_cluster | join_cluster | label | run | forward
 ```
 
 Профиль — это метка узла `shiro.io/<profile>=true`. Одна машина может нести
@@ -85,14 +107,18 @@ Argo CD нужен **один приватный ключ**, чей публич
 ```bash
 cp secrets/core.example.yaml secrets/core.yaml
 cp secrets/node.example.yaml secrets/node.yaml
+cp secrets/observability.example.yaml secrets/observability.yaml
 kubectl create secret docker-registry ghcr --docker-server=ghcr.io \
   --docker-username=<login> --docker-password=<PAT> \
   --dry-run=client -o yaml > secrets/ghcr.yaml
-$EDITOR secrets/core.yaml secrets/node.yaml
+$EDITOR secrets/core.yaml secrets/node.yaml secrets/observability.yaml
 sops -e secrets/core.yaml > secrets/core.enc.yaml
 sops -e secrets/node.yaml > secrets/node.enc.yaml
+sops -e secrets/observability.yaml > secrets/observability.enc.yaml
 sops -e secrets/ghcr.yaml > secrets/ghcr.enc.yaml
 ```
+
+`observability.yaml` содержит только пароль администратора Grafana.
 
 Открытые `secrets/*.yaml` — в `.gitignore`, в git попадают только `*.enc.yaml`
 и `*.example.yaml`. `ghcr.enc.yaml` один на все namespace: kustomize ставит
@@ -122,6 +148,19 @@ Secret в namespace того overlay, который его подключает
   не страшно.
 - **CloudBeaver** — UI к Postgres, добавлен сверх compose (был в черновике
   `k8s`). Наружу не публикуется, доступ через port-forward.
+- **Телеметрия** — отдельный namespace `observability`: otel-collector, jaeger,
+  prometheus, elasticsearch, grafana. Конфиги взяты из
+  `peerhub_wireguard_worker/tests`, дашборды скопированы в
+  `manifests/observability/grafana/dashboards` и приезжают через
+  `configMapGenerator`. Приложения шлют OTLP на
+  `otel-collector.observability.svc.cluster.local:4317`; сейчас это умеет
+  только `peerhub-wireguard-worker`, остальным сервисам нужна
+  инструментация в их репозиториях.
+- **Хранение телеметрии** — prometheus и elasticsearch на PVC, jaeger в памяти
+  (трейсы теряются при рестарте пода, как в compose). Grafana без тома:
+  дашборды и датасорсы приезжают из репозитория.
+- **vm.max_map_count** — elasticsearch без него не стартует,
+  `init_cluster` выставляет `262144` через sysctl.
 - **Теги образов** — прямо в манифестах, руками; после правки нажать Sync.
 - **Не перенесено:** `backup.sh`, `monitor.sh`, `tg.sh`, `topup.sh` (хостовые
   cron-скрипты поверх `docker compose`) и `watchdog/` (живёт на другом
@@ -136,6 +175,9 @@ Secret в namespace того overlay, который его подключает
 - Форвардинг на хосте, потому что wg-easy в hostNetwork:
   `sudo sysctl -w net.ipv4.ip_forward=1` и, если нужен IPv6,
   `net.ipv6.conf.all.forwarding=1`; закрепить в `/etc/sysctl.d/`.
+- Диск: prometheus просит 2Gi, elasticsearch — 5Gi, плюс тома postgres,
+  rabbitmq, caddy, cloudbeaver. Стек observability съедает примерно
+  1.5–2 GiB RAM.
 - A-записи `WEBHOOK_DOMAIN`, `MINI_APP_DOMAIN` и `WG_HOST` — на этот сервер.
 - Если на машине ещё работает compose-стек, сначала погасить его:
   `cd /opt/shiro/deploy/core && docker compose down` и то же для `node` —
@@ -151,8 +193,7 @@ cd k8s_new
 ./deploy.sh init_cluster
 ./deploy.sh label --profile peerhub-wg
 ./deploy.sh run --profile core
-./deploy.sh run --profile peerhub-wg
-```
+./deploy.sh run --profile peerhub-wg./deploy.sh run --profile observability```
 
 `run --profile peerhub-wg` спросит `PEERHUB_ID` (предложит uuid), `COUNTRY`,
 `SERVER_NAME`, `WG_HOST` и `WG_PORT` и запишет их в
@@ -161,8 +202,8 @@ cd k8s_new
 таким Endpoint не заработают, но стек и бот поднимутся.
 
 Репозиторий публичный, доступ Argo CD настраивать не нужно: панель
-сама склонирует его по `repoURL`. Нажать **Sync** у `core`, затем у
-`peerhub-wg`. `init_cluster` берёт ключ из `SOPS_AGE_KEY_FILE` или
+сама склонирует его по `repoURL`. Нажать **Sync** у `core`, `peerhub-wg` и
+`observability`. `init_cluster` берёт ключ из `SOPS_AGE_KEY_FILE` или
 `~/.config/sops/age/keys.txt`, ставит Argo CD и KSOPS и создаёт `sops-age`.
 Ключ разработчика попадает на машину с Argo CD один раз, копией:
 
@@ -193,6 +234,7 @@ SOPS_AGE_KEY_FILE=/path/to/age.agekey ./deploy.sh init_cluster
 ```bash
 sudo k3s kubectl -n shiro get pods
 sudo k3s kubectl -n shiro-peerhub-wg get pods
+sudo k3s kubectl -n observability get pods
 sudo k3s kubectl -n shiro logs deploy/caddy | grep -i 'certificate obtained'
 sudo k3s kubectl -n shiro logs deploy/bot --tail 5        # "Bot started"
 sudo k3s kubectl -n shiro exec deploy/postgres -- psql -U shiro -d shiro \
@@ -229,20 +271,28 @@ K3S_URL=https://<ядро>:6443 K3S_TOKEN=<токен> ./deploy.sh join_cluster 
 
 ## Панели
 
+Одна команда поднимает все панели на `127.0.0.1`; процесс живёт в фоне, pid'ы в
+`/tmp/shiro-forward`, логи рядом.
+
 ```bash
-# Argo CD
-sudo k3s kubectl -n argocd port-forward svc/argocd-server 18080:443 --address 127.0.0.1
-
-# UI wg-easy
-sudo k3s kubectl -n shiro-peerhub-wg port-forward deploy/wg-easy 51821:51821
-
-# management RabbitMQ
-sudo k3s kubectl -n shiro port-forward deploy/rabbitmq 15672:15672
-
-# CloudBeaver: логин admin, пароль CB_ADMIN_PASSWORD из shiro-secret.
-# Postgres внутри UI: host postgres, база shiro, пользователь shiro.
-sudo k3s kubectl -n shiro port-forward deploy/cloudbeaver 8978:8978
+./deploy.sh forward            # все панели
+./deploy.sh forward grafana    # только одна
+./deploy.sh forward stop       # погасить все
 ```
 
-CI собирает `manifests/core` и `manifests/node`; overlay'и не собираются, потому
-что для них нужен приватный ключ.
+| Порт | Что | Логин |
+|---|---|---|
+| 18080 | Argo CD | admin, пароль печатает `init_cluster` |
+| 18081 | Grafana | admin, пароль `GRAFANA_ADMIN_PASSWORD` из `observability-secret` |
+| 18082 | Jaeger UI | — |
+| 18083 | Prometheus | — |
+| 18084 | Elasticsearch | — |
+| 18085 | RabbitMQ management | core, пароль `RABBITMQ_PASSWORD` из `shiro-secret` |
+| 18086 | CloudBeaver | admin, пароль `CB_ADMIN_PASSWORD` из `shiro-secret` |
+| 18087 | wg-easy UI | admin, пароль `WG_EASY_PASSWORD` из `node-secret` |
+
+В CloudBeaver Postgres подключается как host `postgres`, база `shiro`,
+пользователь `shiro`.
+
+CI собирает `manifests/core`, `manifests/node` и `manifests/observability`;
+overlay'и не собираются, потому что для них нужен приватный ключ.

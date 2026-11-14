@@ -23,7 +23,7 @@ jobs:
 
       - name: Build bases
         run: |
-          for dir in manifests/core manifests/node; do
+          for dir in manifests/core manifests/node manifests/observability; do
             kubectl kustomize "$dir" >/dev/null
             echo "ok $dir"
           done

@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 K3S_VERSION=v1.37.2+k3s1
 ARGOCD_VERSION=v3.6.1
 NAMESPACE=shiro
+FORWARD_DIR=${TMPDIR:-/tmp}/shiro-forward
 
 k() { sudo k3s kubectl "$@"; }
 
@@ -23,13 +24,17 @@ init_cluster() {
   k wait --for=condition=Ready node/"$node" --timeout=120s
   k label node "$node" shiro.io/core=true --overwrite
 
+  # Elasticsearch mmaps its indices and refuses to start below this limit.
+  sudo sysctl -w vm.max_map_count=262144 >/dev/null
+
   k create namespace "$NAMESPACE" --dry-run=client -o yaml | k apply -f -
   k create namespace argocd --dry-run=client -o yaml | k apply -f -
   k apply --server-side -n argocd -f \
     "https://raw.githubusercontent.com/argoproj/argo-cd/$ARGOCD_VERSION/manifests/install.yaml"
   k -n argocd rollout status deploy/argocd-server --timeout=300s
+  # Short reconciliation so a push to the dev branch lands in a minute.
   k -n argocd patch configmap argocd-cm --type merge \
-    -p '{"data":{"kustomize.buildOptions":"--enable-alpha-plugins --enable-exec"}}'
+    -p '{"data":{"kustomize.buildOptions":"--enable-alpha-plugins --enable-exec","timeout.reconciliation":"60s"}}'
 
   key=${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}
   if [ ! -f "$key" ]; then
@@ -50,7 +55,7 @@ init_cluster() {
   cat <<EOF
 
 Argo CD panel:
-  sudo k3s kubectl -n argocd port-forward svc/argocd-server 18080:443 --address 127.0.0.1
+  ./deploy.sh forward argocd
   ssh -L 18080:127.0.0.1:18080 <this server>
   https://localhost:18080  admin
   password: ${password:-<argocd-initial-admin-secret not found>}
@@ -58,6 +63,11 @@ Argo CD panel:
 applications:
   ./deploy.sh run --profile core
   ./deploy.sh run --profile peerhub-wg
+  ./deploy.sh run --profile observability
+
+panels:
+  ./deploy.sh forward          # all of them on 127.0.0.1:18081-18087
+  ./deploy.sh forward stop
 
 new VPN node:
   git clone git@github.com:ShiroVPN/k8s_new.git
@@ -143,13 +153,74 @@ run() {
   echo "sync it by hand in the Argo CD panel: $profile"
 }
 
+# name namespace target container-port local-port
+forward_targets() {
+  cat <<EOF
+argocd argocd svc/argocd-server 443 18080
+grafana observability svc/grafana 3000 18081
+jaeger observability svc/jaeger 16686 18082
+prometheus observability svc/prometheus 9090 18083
+elasticsearch observability svc/elasticsearch 9200 18084
+rabbitmq shiro svc/rabbitmq 15672 18085
+cloudbeaver shiro svc/cloudbeaver 8978 18086
+wg-easy shiro-peerhub-wg deploy/wg-easy 51821 18087
+EOF
+}
+
+forward_stop() {
+  for pid_file in "$FORWARD_DIR"/*.pid; do
+    [ -e "$pid_file" ] || continue
+    sudo kill "$(cat "$pid_file")" 2>/dev/null || true
+    rm -f "$pid_file"
+    echo "stopped $(basename "$pid_file" .pid)"
+  done
+}
+
+forward_start() {
+  mkdir -p "$FORWARD_DIR"
+  all=$(forward_targets)
+  if [ $# -eq 0 ]; then
+    # shellcheck disable=SC2086
+    set -- $(echo "$all" | cut -d' ' -f1)
+  fi
+
+  for name in "$@"; do
+    line=$(echo "$all" | awk -v name="$name" '$1 == name')
+    if [ -z "$line" ]; then
+      echo "unknown panel: $name"
+      echo "available: $(echo "$all" | cut -d' ' -f1 | tr '\n' ' ')"
+      continue
+    fi
+    read -r _ namespace target port local <<<"$line"
+
+    pid_file="$FORWARD_DIR/$name.pid"
+    if [ -f "$pid_file" ]; then
+      echo "$name is already forwarded on $local (pid $(cat "$pid_file"))"
+      continue
+    fi
+
+    sudo k3s kubectl -n "$namespace" port-forward "$target" "$local:$port" \
+      --address 127.0.0.1 >"$FORWARD_DIR/$name.log" 2>&1 &
+    echo $! >"$pid_file"
+    echo "$name -> http://127.0.0.1:$local"
+  done
+}
+
 case "${1:-}" in
 init_cluster) init_cluster ;;
 join_cluster) join_cluster "${3:?usage: $0 join_cluster --profile <name>}" ;;
 label) label "${3:?usage: $0 label --profile <name>}" ;;
 run) run "${3:?usage: $0 run --profile <name>}" ;;
+forward)
+  if [ "${2:-}" = "stop" ]; then
+    forward_stop
+  else
+    shift
+    forward_start "$@"
+  fi
+  ;;
 *)
-  echo "usage: $0 init_cluster | join_cluster --profile <name> | label --profile <name> | run --profile <name>"
+  echo "usage: $0 init_cluster | join_cluster --profile <name> | label --profile <name> | run --profile <name> | forward [name...] | forward stop"
   exit 1
   ;;
 esac

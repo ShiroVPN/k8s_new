@@ -1,0 +1,316 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "logs-traces-dashboard",
+    "namespace": "default",
+    "uid": "df7ae746-af87-4eed-962c-eeafbcff5632",
+    "resourceVersion": "1788987458928988",
+    "generation": 10,
+    "creationTimestamp": "2026-09-09T20:02:46Z",
+    "labels": {
+      "grafana.app/deprecatedInternalID": "3603929475809280"
+    },
+    "annotations": {
+      "grafana.app/createdBy": "access-policy:service",
+      "grafana.app/managedBy": "classic-file-provisioning",
+      "grafana.app/managerAllowsEdits": "true",
+      "grafana.app/managerId": "Default",
+      "grafana.app/saved-from-ui": "Grafana v13.2.1 (56cd3e9288)",
+      "grafana.app/sourceChecksum": "a6b7414cddfaab463f6dec0998fff3f2",
+      "grafana.app/sourcePath": "/etc/grafana/dashboards/Logs.json",
+      "grafana.app/sourceTimestamp": "1788725041000",
+      "grafana.app/updatedBy": "user:ffxrk4zo7evwgb",
+      "grafana.app/updatedTimestamp": "2026-09-09T20:57:38Z"
+    }
+  },
+  "spec": {
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "query": {
+            "kind": "DataQuery",
+            "group": "grafana",
+            "version": "v0",
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "spec": {}
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "builtIn": true
+        }
+      }
+    ],
+    "cursorSync": "Off",
+    "editable": true,
+    "elements": {
+      "panel-1": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "Logs",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "elasticsearch",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "Elasticsearch-OTEL"
+                      },
+                      "spec": {
+                        "alias": "",
+                        "bucketAggs": [],
+                        "metrics": [
+                          {
+                            "id": "1",
+                            "settings": {
+                              "limit": "500"
+                            },
+                            "type": "logs"
+                          }
+                        ],
+                        "query": "*",
+                        "queryType": "lucene",
+                        "timeField": "@timestamp"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "logs",
+            "version": "13.2.1",
+            "spec": {
+              "options": {
+                "dedupStrategy": "none",
+                "displayedFields": [
+                  "attributes.otelTraceID",
+                  "attributes.call_id",
+                  "body.text",
+                  "attributes.time_func_execution_ms"
+                ],
+                "enableInfiniteScrolling": false,
+                "enableLogDetails": true,
+                "prettifyLogMessage": false,
+                "showCommonLabels": false,
+                "showControls": false,
+                "showFieldSelector": false,
+                "showLabels": false,
+                "showLevel": true,
+                "showTime": true,
+                "sortOrder": "Descending",
+                "timestampResolution": "ms",
+                "unwrappedColumns": false,
+                "visibleLogsFields": [
+                  "trace_id",
+                  "func_name",
+                  "call_id",
+                  "message"
+                ],
+                "wrapLogMessage": false
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "trace_id"
+                    },
+                    "properties": []
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "panel-2": {
+        "kind": "Panel",
+        "spec": {
+          "id": 2,
+          "title": "Trace",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "jaeger",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "Jaeger-OTEL"
+                      },
+                      "spec": {
+                        "query": "$trace_id"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "traces",
+            "version": "13.2.1",
+            "spec": {
+              "options": {
+                "spanFilters": {
+                  "adhocFilters": [],
+                  "criticalPathOnly": false,
+                  "matchesOnly": false
+                }
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 10,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-1"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 10,
+              "width": 24,
+              "height": 13,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-2"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "links": [],
+    "liveNow": false,
+    "preload": false,
+    "tags": [
+      "otel",
+      "logs",
+      "traces"
+    ],
+    "timeSettings": {
+      "timezone": "browser",
+      "from": "now-6h",
+      "to": "now",
+      "autoRefresh": "",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
+      ],
+      "hideTimepicker": false,
+      "fiscalYearStartMonth": 0
+    },
+    "title": "Logs & Traces",
+    "variables": [
+      {
+        "kind": "AdhocVariable",
+        "group": "elasticsearch",
+        "datasource": {
+          "name": "Elasticsearch-OTEL"
+        },
+        "spec": {
+          "name": "Filters",
+          "baseFilters": [],
+          "filters": [],
+          "defaultKeys": [],
+          "hide": "dontHide",
+          "skipUrlSync": false,
+          "allowCustomValue": true,
+          "enableGroupBy": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "trace_id",
+          "current": {
+            "text": "a210e5abca9a1ca0b59100b5af9ab879",
+            "value": "a210e5abca9a1ca0b59100b5af9ab879"
+          },
+          "label": "Trace ID",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "jaeger",
+            "version": "v0",
+            "datasource": {
+              "name": "Jaeger-OTEL"
+            },
+            "spec": {}
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "disabled",
+          "definition": "",
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "allowCustomValue": true
+        }
+      }
+    ]
+  }
+}

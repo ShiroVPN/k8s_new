@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+data:
+  datasources.yaml: |
+    apiVersion: 1
+
+    # Names match the dashboards below, do not rename without editing them.
+    datasources:
+      - name: Prometheus-OTEL
+        type: prometheus
+        url: http://prometheus:9090
+        editable: true
+
+      - name: Jaeger-OTEL
+        type: jaeger
+        url: http://jaeger:16686
+        editable: true
+
+      - name: Elasticsearch-OTEL
+        type: elasticsearch
+        url: http://elasticsearch:9200
+        editable: true
+        jsonData:
+          index: "*"
+          timeField: "@timestamp"
