@@ -340,6 +340,8 @@ Caddy работает в pod-сети, поэтому Service-имена рез
 - Репозитории приложений рядом с `k8s_new`: `../main_api_worker`, `../BotV2`,
   `../peerhub_wireguard_worker`. Другие пути — через `MAIN_API_WORKER_DIR`,
   `BOT_DIR`, `WG_WORKER_DIR`.
+- Собирать на той машине, где крутятся поды: образ живёт только в containerd
+  этой ноды, `imagePullPolicy: Never` с другой ноды его не достанет.
 
 Возврат на релизные образы: в `argocd/*.yaml` вернуть `targetRevision: main`.
 
