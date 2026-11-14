@@ -334,6 +334,7 @@ Caddy работает в pod-сети, поэтому Service-имена рез
 ./dev.sh build                    # собрать все три
 ./dev.sh build bot                # только бота
 ./dev.sh restart bot              # перезапустить без сборки
+./dev.sh logs                     # логи main-api-worker, follow
 ./dev.sh status                   # Application'ы и поды
 ```
 
@@ -357,7 +358,9 @@ Caddy работает в pod-сети, поэтому Service-имена рез
 1. Правите код в `../main_api_worker` (или `../BotV2`, `../peerhub_wireguard_worker`).
 2. `./dev.sh build main-api-worker` — сборка, импорт, новый тег, пуш в `dev`.
 3. Через минуту Argo CD перекатывает поды. Проверить: `./dev.sh status`.
-4. Логи: `sudo k3s kubectl -n shiro logs deploy/main-api-worker -f`.
+4. Логи: `./dev.sh logs` (по умолчанию `main-api-worker`, можно `logs bot`,
+   `logs peerhub-wireguard-worker`). Это `kubectl logs -f` по всем подам
+   компонента сразу, с префиксом имени пода.
 5. Панели: `./deploy.sh forward --all`, потом `./deploy.sh forward stop`.
 6. Когда всё работает — перенести изменения приложений в их репозитории,
    собрать релиз, обновить теги в `manifests/*` на `main` и запушить `main`.

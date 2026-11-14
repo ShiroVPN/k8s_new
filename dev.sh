@@ -60,6 +60,19 @@ restart() {
   done
 }
 
+logs() {
+  component=${1:-main-api-worker}
+  line=$(deployments "$component") || {
+    echo "unknown component: $component"
+    exit 1
+  }
+  read -r namespace names <<<"$line"
+  # Every deployment of a component shares app=<deployment name>.
+  selector="app in ($(echo "$names" | tr ' ' ','))"
+  sudo k3s kubectl -n "$namespace" logs -l "$selector" \
+    --all-containers --prefix --tail 50 --max-log-requests 10 --follow
+}
+
 pull_sources() {
   for component in $COMPONENTS; do
     dir=$(source_dir "$component")
@@ -117,7 +130,7 @@ build() {
 }
 
 case "${1:-}" in
-build | pull | restart | status)
+build | pull | restart | status | logs)
   if [ "$(git branch --show-current)" != "$BRANCH" ]; then
     echo "run this on the $BRANCH branch"
     exit 1
@@ -129,6 +142,7 @@ build | pull | restart | status)
   build) build "$@" ;;
   restart) restart "$@" ;;
   status) status ;;
+  logs) logs "$@" ;;
   esac
   ;;
 *)
@@ -137,6 +151,7 @@ usage: $0 <command>
 
   build [component...]     rebuild, import into k3s, bump the dev tag, push
   restart [component...]   restart pods without rebuilding
+  logs [component]         follow logs (default main-api-worker)
   status                   Argo CD applications and pods
   pull                     git pull in the sibling app repositories
 
