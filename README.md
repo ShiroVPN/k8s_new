@@ -313,6 +313,35 @@ Caddy работает в pod-сети, поэтому Service-имена рез
 
 Путь через port-forward остался и никуда не делся — он удобнее на ноутбуке,
 где нет DNS и настоящего сертификата.
+## Ветка dev: локальная сборка образов
+
+`dev` — ветка для проверки изменений без новых релизов. Те же Application'ы,
+только `targetRevision: dev`; overlay'и подключают
+`overlays/dev/component`, который подменяет теги наших образов на `dev-*` и
+ставит `imagePullPolicy: Never`.
+
+Образы собираются на машине с кластером, импортируются в containerd k3s и
+никуда не публикуются:
+
+```bash
+./dev.sh pull                     # git pull в соседних репозиториях
+./dev.sh build                    # собрать все три
+./dev.sh build bot                # только бота
+```
+
+`build` собирает, делает `docker save | sudo k3s ctr -n k8s.io images import -`,
+прописывает новый `dev-<дата>-<время>` в `overlays/dev/component`, коммитит и
+пушит `dev`. Argo CD подхватывает пуш за минуту
+(`timeout.reconciliation=60s`) и перекатывает поды.
+
+Что нужно на машине с кластером:
+
+- Docker или Podman (`CONTAINER_ENGINE=podman`).
+- Репозитории приложений рядом с `k8s_new`: `../main_api_worker`, `../BotV2`,
+  `../peerhub_wireguard_worker`. Другие пути — через `MAIN_API_WORKER_DIR`,
+  `BOT_DIR`, `WG_WORKER_DIR`.
+
+Возврат на релизные образы: в `argocd/*.yaml` вернуть `targetRevision: main`.
 
 ## Панели
 
