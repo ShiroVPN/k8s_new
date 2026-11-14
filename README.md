@@ -124,6 +124,20 @@ sops -e secrets/ghcr.yaml > secrets/ghcr.enc.yaml
 и `*.example.yaml`. `ghcr.enc.yaml` один на все namespace: kustomize ставит
 Secret в namespace того overlay, который его подключает.
 
+## Образы из интернета
+
+Сторонние образы kubelet тянет с Docker Hub при первом запуске пода. Загрузить
+их заранее, не дожидаясь `ImagePullBackOff`:
+
+```bash
+./deploy.sh cache_images
+```
+
+Команда собирает список образов из `manifests/` (свои `ghcr.io/shirovpn/*`
+пропускает) и делает `sudo k3s ctr -n k8s.io images pull` для каждого. Если
+часть не скачалась — печатает их и выходит с ошибкой: значит на ноде сломан
+DNS или egress, и лечить надо это, а не манифесты.
+
 ## Чем отличается от compose
 
 - **Миграции** — init-контейнер `migrate` у `main-api-worker` (в compose это

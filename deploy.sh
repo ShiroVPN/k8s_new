@@ -243,11 +243,44 @@ forward_start() {
   done <<<"$resolved"
 }
 
+# Pull every third-party image into the node's containerd. Useful before a
+# rollout on a slow link, and the only fix when host DNS or egress is flaky.
+cache_images() {
+  images=$(
+    for dir in manifests/core manifests/node manifests/observability; do
+      kubectl kustomize "$dir"
+    done | sed -n 's/^ *image: *//p' | grep -v '^ghcr.io/shirovpn/' | sort -u
+  )
+
+  failed=""
+  for image in $images; do
+    if sudo k3s ctr -n k8s.io images ls -q | grep -qx "$image"; then
+      echo "cached $image"
+      continue
+    fi
+    echo "pulling $image"
+    if sudo k3s ctr -n k8s.io images pull "$image" >/dev/null; then
+      echo "ok $image"
+    else
+      echo "FAILED $image"
+      failed="$failed $image"
+    fi
+  done
+
+  if [ -n "$failed" ]; then
+    echo
+    echo "could not pull:$failed"
+    echo "check DNS and egress on the node, then run this again"
+    exit 1
+  fi
+}
+
 case "${1:-}" in
 init_cluster) init_cluster ;;
 join_cluster) join_cluster "${3:?usage: $0 join_cluster --profile <name>}" ;;
 label) label "${3:?usage: $0 label --profile <name>}" ;;
 run) run "${3:?usage: $0 run --profile <name>}" ;;
+cache_images) cache_images ;;
 forward)
   if [ "${2:-}" = "stop" ]; then
     forward_stop
@@ -264,6 +297,7 @@ usage: $0 <command>
   join_cluster --profile <name>      join an existing cluster
   label --profile <name>             mark this node for a profile
   run --profile <name>               create the Argo CD Application
+  cache_images                       pull third-party images into containerd
   forward [--all] [panel...]         port-forward panels, default is the ones
                                      with a password
   forward stop                       stop every forward
