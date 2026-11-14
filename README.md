@@ -340,9 +340,48 @@ Caddy работает в pod-сети, поэтому Service-имена рез
 
 `build` собирает, делает `docker save | sudo k3s ctr -n k8s.io images import -`,
 прописывает новый `dev-<дата>-<время>` в `overlays/dev/component`, коммитит и
-пушит `dev`. Argo CD подхватывает пуш за минуту
-(`timeout.reconciliation=60s`) и перекатывает поды. Отдельного «задеплоить»
-нет: `build` и есть деплой.
+пушит `dev`. Application'ы в этой ветке включены с `automated.prune`, поэтому
+Argo CD сам замечает пуш за минуту (`timeout.reconciliation=60s`) и
+перекатывает поды. Отдельного «задеплоить» нет: `build` и есть деплой.
+
+`selfHeal` намеренно выключен: иначе Argo откатывал бы аннотацию от
+`./dev.sh restart` и поды перезапускались бы по кругу.
+
+Если в панели видно `ErrImageNeverPull` с тегом `dev-0`, значит образ ещё не
+собран на этой машине — запустите `./dev.sh build` (или `build <component>`
+для одного сервиса). Тег `dev-0` в `overlays/dev/component` — начальная
+заглушка, её заменяет первая же сборка.
+
+### Если VPN ломает Sync
+
+Кластер k3s живёт в `10.42.0.0/16` (поды) и `10.43.0.0/16` (сервисы), а
+v2raya в режиме tproxy забирает себе всю маршрутизацию, включая приватные
+диапазоны. Тогда под не может достучаться до CoreDNS
+(`10.43.0.10:53`), и Argo падает с ошибкой вида:
+
+```
+dns: A record lookup error: lookup argocd-repo-server on 10.43.0.10:53:
+read udp 10.42.0.12:36158->10.43.0.10:53: read: connection refused
+```
+
+Проверить, что адрес кластера уходит в туннель:
+
+```bash
+ip route get 10.43.0.10            # должен быть локальный маршрут, не tun/wg
+sudo k3s kubectl -n argocd exec deploy/argocd-server -- nslookup argocd-repo-server
+```
+
+Лечится на стороне VPN: завернуть приватные адреса в `direct`. В RoutingA у
+v2raya достаточно одной строки над `default`:
+
+```
+ip(geoip:private) -> direct
+default: proxy
+```
+
+То же самое делают галочки «Bypass LAN»/«Пропускать локальные адреса» в
+других клиентах. Менять CIDR кластера смысла нет: `geoip:private` покрывает
+и `172.16.0.0/12`.
 
 Что нужно на машине с кластером:
 
