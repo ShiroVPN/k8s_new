@@ -15,7 +15,8 @@ data:
 
       - name: Jaeger-OTEL
         type: jaeger
-        url: http://jaeger:16686
+        # Jaeger serves its API under QUERY_BASE_PATH, hence the prefix.
+        url: http://jaeger:16686/jaeger
         editable: true
 
       - name: Elasticsearch-OTEL

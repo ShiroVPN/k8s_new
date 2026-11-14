@@ -21,3 +21,29 @@ data:
     {$MINI_APP_DOMAIN} {
             reverse_proxy bot:8080
     }
+
+    # Cluster dashboards under one name. Caddy runs inside the pod network, so
+    # Service DNS resolves and no kubectl port-forward is needed.
+    {$ADMIN_DOMAIN} {
+            # The name does not resolve yet, so ACME would fail on every
+            # attempt. Caddy signs with its own CA until a real A record exists.
+            tls internal
+
+            redir / /grafana/ 302
+
+            @grafana path /grafana /grafana/*
+            handle @grafana {
+                    reverse_proxy grafana.observability.svc.cluster.local:3000
+            }
+
+            @jaeger path /jaeger /jaeger/*
+            handle @jaeger {
+                    reverse_proxy jaeger.observability.svc.cluster.local:16686
+            }
+
+            # prometheus, elasticsearch, rabbitmq, cloudbeaver and wg-easy
+            # emit absolute URLs, so they need a hostname rather than a path.
+            handle {
+                    respond "not routed, see ADMIN_DOMAIN in the Caddyfile" 404
+            }
+    }

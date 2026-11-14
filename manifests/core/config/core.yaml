@@ -5,6 +5,9 @@ metadata:
 data:
   WEBHOOK_DOMAIN: "webhook.example.com"
   MINI_APP_DOMAIN: "app.webhook.example.com"
+  # Placeholder: rename once the name has an A record, then drop `tls internal`
+  # in the Caddyfile and put authentication in front of it.
+  ADMIN_DOMAIN: "admin.example.com"
   STUB_PAYMENT: "1"
   ADMIN_TELEGRAM_IDS: ""
   PEERHUB_WORKER_WAIT_RESULT_TIMEOUT: "10"

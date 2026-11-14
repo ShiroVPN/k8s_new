@@ -144,10 +144,14 @@ Secret в namespace того overlay, который его подключает
 - **bot без `hostNetwork`**: в pod-сети он доступен по Service `bot:8080`, и
   Caddy проксирует мини-приложение туда же. Сеть хоста нужна была только для
   локального деплоя, в ветке `dev` она возвращается.
-- **Caddy выключен в `overlays/core`** (`replicas: 0`): 80/443 на машине уже
-  заняты другим Caddy. Пока он выключен, вебхук Platega и мини-приложение
-  снаружи недоступны (платежи всё равно выключены). Освободятся порты —
-  поставить `1`.
+- **Caddy включён**: держит 80/443 на хосте и обслуживает `WEBHOOK_DOMAIN`,
+  `MINI_APP_DOMAIN` и `ADMIN_DOMAIN`. `ADMIN_DOMAIN` — заглушка на
+  `admin.example.com`: имени пока нет, поэтому блок стоит с `tls internal`
+  (сертификат от собственного CA Caddy), а из панелей по пути отдаются только
+  Grafana (`/grafana/`) и Jaeger (`/jaeger/`). Остальные панели строят
+  абсолютные ссылки и требуют отдельного имени — см. раздел «Доступ к панелям».
+  Когда появится A-запись: вписать домен в `core-config` и убрать
+  `tls internal`.
 - **Redis без тома** (как в compose): результаты задач живут час, терять их
   не страшно.
 - **CloudBeaver** — UI к Postgres, добавлен сверх compose (был в черновике
@@ -185,6 +189,7 @@ Secret в namespace того overlay, который его подключает
 - `vm.max_map_count=262144` для elasticsearch. `init_cluster` выставляет его
   через sysctl, но после перезагрузки нужно закрепить в `/etc/sysctl.d/`.
 - A-записи `WEBHOOK_DOMAIN`, `MINI_APP_DOMAIN` и `WG_HOST` — на этот сервер.
+  `ADMIN_DOMAIN` пока заглушка и работает только через `tls internal`.
 - Если на машине ещё работает compose-стек, сначала погасить его:
   `cd /opt/shiro/deploy/core && docker compose down` и то же для `node` —
   80/443 и 51820/udp заняты.
@@ -227,7 +232,7 @@ SOPS_AGE_KEY_FILE=/path/to/age.agekey ./deploy.sh init_cluster
 Значения, которые правятся не в секретах, а в конфигах:
 
 - `manifests/core/config/core.yaml` — `WEBHOOK_DOMAIN`, `MINI_APP_DOMAIN`,
-  `STUB_PAYMENT`, `ADMIN_TELEGRAM_IDS`.
+  `ADMIN_DOMAIN`, `STUB_PAYMENT`, `ADMIN_TELEGRAM_IDS`.
 - `overlays/peerhub-wg/peerhub-config.yaml` — `PEERHUB_ID` (uuid предложит
   `run --profile peerhub-wg`), `COUNTRY`, `SERVER_NAME`, `WG_HOST`, `WG_PORT`.
 
@@ -274,6 +279,40 @@ K3S_URL=https://<ядро>:6443 K3S_TOKEN=<токен> ./deploy.sh join_cluster 
 Второй overlay подключает тот же `secrets/node.enc.yaml` — пароль wg-easy у
 нод общий. Если нужен свой, сделайте `secrets/node-2.enc.yaml` по образцу и
 поправьте `overlays/peerhub-wg-2/ksops.yaml`.
+
+## Доступ к панелям
+
+Caddy работает в pod-сети, поэтому Service-имена резолвятся его DNS'ом и
+`kubectl port-forward` не нужен вообще:
+
+```caddy
+{$ADMIN_DOMAIN} {
+        tls internal
+        redir / /grafana/ 302
+        @grafana path /grafana /grafana/*
+        handle @grafana {
+                reverse_proxy grafana.observability.svc.cluster.local:3000
+        }
+        @jaeger path /jaeger /jaeger/*
+        handle @jaeger {
+                reverse_proxy jaeger.observability.svc.cluster.local:16686
+        }
+}
+```
+
+Чтобы это заработало, у сервисов выставлены префиксы:
+
+- Grafana — `GF_SERVER_SERVE_FROM_SUB_PATH=true` и
+  `GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/`;
+- Jaeger — `QUERY_BASE_PATH=/jaeger`, поэтому датасорс в Grafana указывает на
+  `http://jaeger:16686/jaeger`.
+
+Что так не отдаётся и почему: Prometheus, Elasticsearch, RabbitMQ, CloudBeaver
+и wg-easy строят абсолютные ссылки от корня и без своего имени ломаются.
+Для них нужен либо отдельный поддомен на каждый, либо `./deploy.sh forward`.
+
+Путь через port-forward остался и никуда не делся — он удобнее на ноутбуке,
+где нет DNS и настоящего сертификата.
 
 ## Панели
 

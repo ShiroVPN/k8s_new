@@ -27,6 +27,13 @@ spec:
                   key: GRAFANA_ADMIN_PASSWORD
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
+            # Grafana is reachable under /grafana on the admin domain, so it
+            # has to strip that prefix itself. The domain is filled from the
+            # request, which keeps the same pod usable behind port-forward.
+            - name: GF_SERVER_ROOT_URL
+              value: "%(protocol)s://%(domain)s/grafana/"
+            - name: GF_SERVER_SERVE_FROM_SUB_PATH
+              value: "true"
           ports:
             - name: http
               containerPort: 3000
@@ -42,7 +49,7 @@ spec:
               readOnly: true
           readinessProbe:
             httpGet:
-              path: /api/health
+              path: /grafana/api/health
               port: http
             initialDelaySeconds: 10
             periodSeconds: 10

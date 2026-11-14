@@ -35,6 +35,11 @@ spec:
                 configMapKeyRef:
                   name: core-config
                   key: MINI_APP_DOMAIN
+            - name: ADMIN_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: core-config
+                  key: ADMIN_DOMAIN
           volumeMounts:
             - name: caddyfile
               mountPath: /etc/caddy/Caddyfile
