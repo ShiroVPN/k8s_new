@@ -84,6 +84,12 @@ pull_sources() {
   done
 }
 
+sync_main() {
+  git fetch origin
+  git rebase origin/main
+  echo "rebased dev onto origin/main"
+}
+
 retag() {
   tag=$1
   shift
@@ -130,7 +136,7 @@ build() {
 }
 
 case "${1:-}" in
-build | pull | restart | status | logs)
+build | pull | restart | status | logs | sync)
   if [ "$(git branch --show-current)" != "$BRANCH" ]; then
     echo "run this on the $BRANCH branch"
     exit 1
@@ -143,6 +149,7 @@ build | pull | restart | status | logs)
   restart) restart "$@" ;;
   status) status ;;
   logs) logs "$@" ;;
+  sync) sync_main ;;
   esac
   ;;
 *)
@@ -154,8 +161,12 @@ usage: $0 <command>
   logs [component]         follow logs (default main-api-worker)
   status                   Argo CD applications and pods
   pull                     git pull in the sibling app repositories
+  sync                     rebase dev onto origin/main
 
 components: $COMPONENTS
+
+Shared files (deploy.sh, manifests/) are edited on main only; run sync to pick
+them up here.
 
 env: CONTAINER_ENGINE, MAIN_API_WORKER_DIR, BOT_DIR, WG_WORKER_DIR
 EOF
