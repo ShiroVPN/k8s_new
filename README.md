@@ -203,8 +203,17 @@ git clone git@github.com/ShiroVPN/k8s_new.git
 cd k8s_new
 ./deploy.sh init_cluster
 ./deploy.sh label --profile peerhub-wg
+# только на ветке dev, до run: Application'ы ждут образы dev-* с
+# imagePullPolicy: Never, без сборки поды уйдут в ErrImageNeverPull
+./dev.sh build
 ./deploy.sh run --profile core
-./deploy.sh run --profile peerhub-wg./deploy.sh run --profile observability```
+./deploy.sh run --profile observability
+./deploy.sh run --profile peerhub-wg
+```
+
+На ветке `dev` порядок жёсткий: сначала `./dev.sh build` (он же ставит тег
+`dev-*` в `overlays/dev/component`), потом `run`. На `main` сборка не нужна —
+образы приезжают из ghcr.
 
 `run --profile peerhub-wg` спросит `PEERHUB_ID` (предложит uuid), `COUNTRY`,
 `SERVER_NAME`, `WG_HOST` и `WG_PORT` и запишет их в
