@@ -320,6 +320,12 @@ Caddy работает в pod-сети, поэтому Service-имена рез
 `overlays/dev/component`, который подменяет теги наших образов на `dev-*` и
 ставит `imagePullPolicy: Never`.
 
+Отличия от `main`, кроме тегов:
+
+- `bot` снова с `hostNetwork: true` — ноутбуку так удобнее;
+- `argocd/ksops-patch.yaml` держит `hostNetwork` у repo-server;
+- wg-easy одинаково в обеих ветках.
+
 Образы собираются на машине с кластером, импортируются в containerd k3s и
 никуда не публикуются:
 
@@ -327,12 +333,15 @@ Caddy работает в pod-сети, поэтому Service-имена рез
 ./dev.sh pull                     # git pull в соседних репозиториях
 ./dev.sh build                    # собрать все три
 ./dev.sh build bot                # только бота
+./dev.sh restart bot              # перезапустить без сборки
+./dev.sh status                   # Application'ы и поды
 ```
 
 `build` собирает, делает `docker save | sudo k3s ctr -n k8s.io images import -`,
 прописывает новый `dev-<дата>-<время>` в `overlays/dev/component`, коммитит и
 пушит `dev`. Argo CD подхватывает пуш за минуту
-(`timeout.reconciliation=60s`) и перекатывает поды.
+(`timeout.reconciliation=60s`) и перекатывает поды. Отдельного «задеплоить»
+нет: `build` и есть деплой.
 
 Что нужно на машине с кластером:
 
@@ -343,7 +352,22 @@ Caddy работает в pod-сети, поэтому Service-имена рез
 - Собирать на той машине, где крутятся поды: образ живёт только в containerd
   этой ноды, `imagePullPolicy: Never` с другой ноды его не достанет.
 
-Возврат на релизные образы: в `argocd/*.yaml` вернуть `targetRevision: main`.
+### Цикл работы над фичей или фиксом
+
+1. Правите код в `../main_api_worker` (или `../BotV2`, `../peerhub_wireguard_worker`).
+2. `./dev.sh build main-api-worker` — сборка, импорт, новый тег, пуш в `dev`.
+3. Через минуту Argo CD перекатывает поды. Проверить: `./dev.sh status`.
+4. Логи: `sudo k3s kubectl -n shiro logs deploy/main-api-worker -f`.
+5. Панели: `./deploy.sh forward --all`, потом `./deploy.sh forward stop`.
+6. Когда всё работает — перенести изменения приложений в их репозитории,
+   собрать релиз, обновить теги в `manifests/*` на `main` и запушить `main`.
+
+Если поменялись только манифесты `k8s_new`, шаги 1–2 не нужны: коммит в `dev`
+и Sync. Если поменялись зависимости или Dockerfile — только `build`, без
+`restart`.
+
+Возврат на релизные образы: в `argocd/*.yaml` вернуть `targetRevision: main`
+и применить Application'ы заново (`./deploy.sh run --profile core`).
 
 ## Панели
 
