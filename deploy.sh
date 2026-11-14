@@ -178,6 +178,9 @@ forward_stop() {
 
 forward_start() {
   mkdir -p "$FORWARD_DIR"
+  # sudo runs in the background below and cannot ask for a password there.
+  sudo -v
+
   all=$(forward_targets)
   if [ $# -eq 0 ]; then
     # shellcheck disable=SC2086
@@ -191,18 +194,20 @@ forward_start() {
       echo "available: $(echo "$all" | cut -d' ' -f1 | tr '\n' ' ')"
       continue
     fi
-    read -r _ namespace target port local <<<"$line"
+    read -r _ namespace target port local_port <<<"$line"
 
     pid_file="$FORWARD_DIR/$name.pid"
-    if [ -f "$pid_file" ]; then
-      echo "$name is already forwarded on $local (pid $(cat "$pid_file"))"
+    if [ -f "$pid_file" ] && sudo kill -0 "$(cat "$pid_file")" 2>/dev/null; then
+      echo "$name is already forwarded on $local_port"
       continue
     fi
+    rm -f "$pid_file"
 
-    sudo k3s kubectl -n "$namespace" port-forward "$target" "$local:$port" \
-      --address 127.0.0.1 >"$FORWARD_DIR/$name.log" 2>&1 &
+    sudo k3s kubectl -n "$namespace" port-forward "$target" \
+      "$local_port:$port" --address 127.0.0.1 \
+      >"$FORWARD_DIR/$name.log" 2>&1 &
     echo $! >"$pid_file"
-    echo "$name -> http://127.0.0.1:$local"
+    echo "$name -> http://127.0.0.1:$local_port"
   done
 }
 

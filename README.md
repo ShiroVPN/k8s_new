@@ -178,6 +178,8 @@ Secret в namespace того overlay, который его подключает
 - Диск: prometheus просит 2Gi, elasticsearch — 5Gi, плюс тома postgres,
   rabbitmq, caddy, cloudbeaver. Стек observability съедает примерно
   1.5–2 GiB RAM.
+- `vm.max_map_count=262144` для elasticsearch. `init_cluster` выставляет его
+  через sysctl, но после перезагрузки нужно закрепить в `/etc/sysctl.d/`.
 - A-записи `WEBHOOK_DOMAIN`, `MINI_APP_DOMAIN` и `WG_HOST` — на этот сервер.
 - Если на машине ещё работает compose-стек, сначала погасить его:
   `cd /opt/shiro/deploy/core && docker compose down` и то же для `node` —
