@@ -5,11 +5,11 @@ kind: Component
 # into k3s containerd, so they are never present in a registry.
 images:
   - name: ghcr.io/shirovpn/main_api_worker
-    newTag: dev-0
+    newTag: dev-20261114-225930
   - name: ghcr.io/shirovpn/botv2
-    newTag: dev-0
+    newTag: dev-20261114-225930
   - name: ghcr.io/shirovpn/peerhub_wireguard_worker
-    newTag: dev-0
+    newTag: dev-20261114-225930
 
 patches:
   - target:
