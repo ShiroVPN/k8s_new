@@ -148,6 +148,11 @@ label() {
 run() {
   profile=$1
   peerhub_configure "$profile"
+  # The file on disk comes from the current branch, so say out loud which
+  # branch Argo CD is about to follow.
+  branch=$(git branch --show-current 2>/dev/null || echo "detached")
+  revision=$(sed -n 's/^ *targetRevision: *//p' "argocd/$profile.yaml")
+  echo "applying argocd/$profile.yaml from branch '$branch' (targetRevision: $revision)"
   k apply -f "argocd/$profile.yaml"
   k -n argocd get application "$profile"
   echo "sync it by hand in the Argo CD panel: $profile"
