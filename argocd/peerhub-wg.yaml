@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/ShiroVPN/k8s_new.git
-    targetRevision: main
+    targetRevision: dev
     path: overlays/peerhub-wg
   destination:
     server: https://kubernetes.default.svc

@@ -6,6 +6,9 @@ namespace: shiro-peerhub-wg
 resources:
   - ../../manifests/node
 
+components:
+  - ../dev/component
+
 generators:
   - ksops.yaml
 

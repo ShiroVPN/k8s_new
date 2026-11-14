@@ -6,6 +6,9 @@ namespace: shiro
 resources:
   - ../../manifests/core
 
+components:
+  - ../dev/component
+
 generators:
   - ksops.yaml
 
