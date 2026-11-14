@@ -4,22 +4,25 @@ resources:
   - config/core.yaml
   - config/main-api.yaml
   - config/caddy.yaml
-  - postgres/pvc.yaml
-  - postgres/deployment.yaml
-  - postgres/service.yaml
-  - rabbitmq/pvc.yaml
-  - rabbitmq/deployment.yaml
-  - rabbitmq/service.yaml
-  - redis/deployment.yaml
-  - redis/service.yaml
-  - main-api-worker/deployment.yaml
-  - main-api-scheduler/deployment.yaml
-  - main-api-webhook/deployment.yaml
-  - main-api-webhook/service.yaml
-  - bot/deployment.yaml
-  - bot/service.yaml
-  - caddy/pvc.yaml
-  - caddy/deployment.yaml
-  - cloudbeaver/pvc.yaml
-  - cloudbeaver/deployment.yaml
-  - cloudbeaver/service.yaml
+  # deps: open-source services we only run
+  - deps/postgres/pvc.yaml
+  - deps/postgres/deployment.yaml
+  - deps/postgres/service.yaml
+  - deps/rabbitmq/pvc.yaml
+  - deps/rabbitmq/deployment.yaml
+  - deps/rabbitmq/service.yaml
+  - deps/redis/deployment.yaml
+  - deps/redis/service.yaml
+  # aux: panels and proxies around the stack
+  - aux/caddy/pvc.yaml
+  - aux/caddy/deployment.yaml
+  - aux/cloudbeaver/pvc.yaml
+  - aux/cloudbeaver/deployment.yaml
+  - aux/cloudbeaver/service.yaml
+  # apps: our own code
+  - apps/main-api-worker/deployment.yaml
+  - apps/main-api-scheduler/deployment.yaml
+  - apps/main-api-webhook/deployment.yaml
+  - apps/main-api-webhook/service.yaml
+  - apps/bot/deployment.yaml
+  - apps/bot/service.yaml
