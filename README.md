@@ -218,7 +218,9 @@ cd k8s_new
 ./deploy.sh init_cluster
 ./deploy.sh label --profile peerhub-wg
 ./deploy.sh run --profile core
-./deploy.sh run --profile peerhub-wg./deploy.sh run --profile observability```
+./deploy.sh run --profile observability
+./deploy.sh run --profile peerhub-wg
+```
 
 `run --profile peerhub-wg` спросит `PEERHUB_ID` (предложит uuid), `COUNTRY`,
 `SERVER_NAME`, `WG_HOST` и `WG_PORT` и запишет их в
