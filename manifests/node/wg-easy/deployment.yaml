@@ -16,6 +16,8 @@ spec:
       labels:
         app: wg-easy
     spec:
+      # wg0 must live in the host netns: clients reach 51820/udp directly and
+      # forwarding to the internet uses the host's net.ipv4.ip_forward.
       hostNetwork: true
       dnsPolicy: Default
       containers:

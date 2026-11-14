@@ -153,17 +153,19 @@ run() {
   echo "sync it by hand in the Argo CD panel: $profile"
 }
 
-# name namespace target container-port local-port
+# name namespace target container-port local-port password
+# password=no panels have no authentication of their own; they are skipped by
+# default and only come up with --all.
 forward_targets() {
   cat <<EOF
-argocd argocd svc/argocd-server 443 18080
-grafana observability svc/grafana 3000 18081
-jaeger observability svc/jaeger 16686 18082
-prometheus observability svc/prometheus 9090 18083
-elasticsearch observability svc/elasticsearch 9200 18084
-rabbitmq shiro svc/rabbitmq 15672 18085
-cloudbeaver shiro svc/cloudbeaver 8978 18086
-wg-easy shiro-peerhub-wg deploy/wg-easy 51821 18087
+argocd argocd svc/argocd-server 443 18080 yes
+grafana observability svc/grafana 3000 18081 yes
+jaeger observability svc/jaeger 16686 18082 no
+prometheus observability svc/prometheus 9090 18083 no
+elasticsearch observability svc/elasticsearch 9200 18084 no
+rabbitmq shiro svc/rabbitmq 15672 18085 yes
+cloudbeaver shiro svc/cloudbeaver 8978 18086 yes
+wg-easy shiro-peerhub-wg deploy/wg-easy 51821 18087 yes
 EOF
 }
 
@@ -178,28 +180,48 @@ forward_stop() {
 
 forward_start() {
   mkdir -p "$FORWARD_DIR"
-  all=$(forward_targets)
+
+  all=no
+  while [ "${1:-}" = "--all" ]; do
+    all=yes
+    shift
+  done
+
+  targets=$(forward_targets)
   if [ $# -eq 0 ]; then
-    # shellcheck disable=SC2086
-    set -- $(echo "$all" | cut -d' ' -f1)
+    if [ "$all" = yes ]; then
+      # shellcheck disable=SC2046
+      set -- $(echo "$targets" | cut -d' ' -f1)
+    else
+      # shellcheck disable=SC2046
+      set -- $(echo "$targets" | awk '$6 == "yes" { print $1 }')
+    fi
   fi
 
   # Resolve every name first: a typo must not trigger a password prompt.
   resolved=""
   for name in "$@"; do
-    line=$(echo "$all" | awk -v name="$name" '$1 == name')
+    line=$(echo "$targets" | awk -v name="$name" '$1 == name')
     if [ -z "$line" ]; then
       echo "unknown panel: $name" >&2
-      echo "available: $(echo "$all" | cut -d' ' -f1 | tr '\n' ' ')" >&2
+      echo "available: $(echo "$targets" | cut -d' ' -f1 | tr '\n' ' ')" >&2
       exit 1
     fi
+    case $(echo "$line" | cut -d' ' -f6) in
+    no)
+      if [ "$all" = no ]; then
+        echo "skip $name: no password, use --all to forward it anyway" >&2
+        continue
+      fi
+      ;;
+    esac
     resolved="$resolved$line"$'\n'
   done
 
   # Forwards start in the background and cannot answer a password prompt.
   sudo -v
 
-  while read -r name namespace target port local_port; do
+  while read -r name namespace target port local_port _; do
     [ -n "$name" ] || continue
     pid_file="$FORWARD_DIR/$name.pid"
     if [ -f "$pid_file" ] && sudo kill -0 "$(cat "$pid_file")" 2>/dev/null; then
@@ -230,7 +252,17 @@ forward)
   fi
   ;;
 *)
-  echo "usage: $0 init_cluster | join_cluster --profile <name> | label --profile <name> | run --profile <name> | forward [name...] | forward stop"
+  cat <<EOF
+usage: $0 <command>
+
+  init_cluster                       install k3s, Argo CD and KSOPS
+  join_cluster --profile <name>      join an existing cluster
+  label --profile <name>             mark this node for a profile
+  run --profile <name>               create the Argo CD Application
+  forward [--all] [panel...]         port-forward panels, default is the ones
+                                     with a password
+  forward stop                       stop every forward
+EOF
   exit 1
   ;;
 esac

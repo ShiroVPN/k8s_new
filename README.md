@@ -139,7 +139,11 @@ Secret в namespace того overlay, который его подключает
 - **wg-easy** работает с `hostNetwork: true`: интерфейс `wg0` создаётся в сети
   хоста, иначе туннель изолирован в pod-сети. Поэтому нужен
   `net.ipv4.ip_forward=1` на самой ноде, а UI 51821 наружу не публикуется —
-  только port-forward.
+  только port-forward. Это единственный под с сетью хоста: без неё 51820/udp
+  снаружи не работает.
+- **bot без `hostNetwork`**: в pod-сети он доступен по Service `bot:8080`, и
+  Caddy проксирует мини-приложение туда же. Сеть хоста нужна была только для
+  локального деплоя, в ветке `dev` она возвращается.
 - **Caddy выключен в `overlays/core`** (`replicas: 0`): 80/443 на машине уже
   заняты другим Caddy. Пока он выключен, вебхук Platega и мини-приложение
   снаружи недоступны (платежи всё равно выключены). Освободятся порты —
@@ -273,12 +277,13 @@ K3S_URL=https://<ядро>:6443 K3S_TOKEN=<токен> ./deploy.sh join_cluster 
 
 ## Панели
 
-Одна команда поднимает все панели на `127.0.0.1`; процесс живёт в фоне, pid'ы в
+Одна команда поднимает панели на `127.0.0.1`; процессы живут в фоне, pid'ы в
 `/tmp/shiro-forward`, логи рядом.
 
 ```bash
-./deploy.sh forward            # все панели
-./deploy.sh forward grafana    # только одна
+./deploy.sh forward            # только панели с паролем
+./deploy.sh forward grafana    # одна конкретная
+./deploy.sh forward --all      # вместе с jaeger, prometheus, elasticsearch
 ./deploy.sh forward stop       # погасить все
 ```
 
@@ -286,15 +291,31 @@ K3S_URL=https://<ядро>:6443 K3S_TOKEN=<токен> ./deploy.sh join_cluster 
 |---|---|---|
 | 18080 | Argo CD | admin, пароль печатает `init_cluster` |
 | 18081 | Grafana | admin, пароль `GRAFANA_ADMIN_PASSWORD` из `observability-secret` |
-| 18082 | Jaeger UI | — |
-| 18083 | Prometheus | — |
-| 18084 | Elasticsearch | — |
 | 18085 | RabbitMQ management | core, пароль `RABBITMQ_PASSWORD` из `shiro-secret` |
 | 18086 | CloudBeaver | admin, пароль `CB_ADMIN_PASSWORD` из `shiro-secret` |
 | 18087 | wg-easy UI | admin, пароль `WG_EASY_PASSWORD` из `node-secret` |
+
+Без своего пароля идут только три панели, поэтому по умолчанию они не
+поднимаются — смотреть трейсы и метрики можно в Grafana, где есть датасорсы
+Jaeger и Elasticsearch.
+
+| Порт | Что | Только с `--all` |
+|---|---|---|
+| 18082 | Jaeger UI | да |
+| 18083 | Prometheus | да |
+| 18084 | Elasticsearch | да |
 
 В CloudBeaver Postgres подключается как host `postgres`, база `shiro`,
 пользователь `shiro`.
 
 CI собирает `manifests/core`, `manifests/node` и `manifests/observability`;
 overlay'и не собираются, потому что для них нужен приватный ключ.
+
+## Ветки
+
+- `main` — то, что стоит на прод-сервере: Argo CD тянет `targetRevision: main`.
+- `dev` — те же манифесты с локальной сборкой образов; Application'ы в этой
+  ветке указывают на `targetRevision: dev`. Подробности в README ветки `dev`.
+
+Перед деплоем в прод проверьте, что `argocd/*.yaml` смотрят на `main`:
+`grep targetRevision argocd/*.yaml`.

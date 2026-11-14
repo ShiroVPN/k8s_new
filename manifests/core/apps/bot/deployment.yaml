@@ -16,8 +16,6 @@ spec:
       labels:
         app: bot
     spec:
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
       imagePullSecrets:
         - name: ghcr
       containers:
