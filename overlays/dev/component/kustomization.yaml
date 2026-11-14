@@ -26,3 +26,14 @@ patches:
       - op: add
         path: /spec/template/spec/initContainers/0/imagePullPolicy
         value: Never
+  # The laptop reaches the mini app through the host network, prod does not.
+  - target:
+      kind: Deployment
+      name: bot
+    patch: |-
+      - op: add
+        path: /spec/template/spec/hostNetwork
+        value: true
+      - op: add
+        path: /spec/template/spec/dnsPolicy
+        value: ClusterFirstWithHostNet

@@ -30,6 +30,36 @@ image_name() {
 
 COMPONENTS="main-api-worker bot peerhub-wireguard-worker"
 
+deployments() {
+  case $1 in
+  main-api-worker) echo "shiro main-api-worker main-api-scheduler main-api-webhook" ;;
+  bot) echo "shiro bot" ;;
+  peerhub-wireguard-worker) echo "shiro-peerhub-wg peerhub-wireguard-worker" ;;
+  *) return 1 ;;
+  esac
+}
+
+status() {
+  sudo k3s kubectl -n argocd get applications
+  for namespace in shiro shiro-peerhub-wg observability; do
+    echo
+    sudo k3s kubectl -n "$namespace" get pods
+  done
+}
+
+restart() {
+  components=${*:-$COMPONENTS}
+  for component in $components; do
+    read -r namespace names <<<"$(deployments "$component")" || true
+    if [ -z "${names:-}" ]; then
+      echo "unknown component: $component"
+      exit 1
+    fi
+    # shellcheck disable=SC2086
+    sudo k3s kubectl -n "$namespace" rollout restart deploy $names
+  done
+}
+
 pull_sources() {
   for component in $COMPONENTS; do
     dir=$(source_dir "$component")
@@ -87,22 +117,33 @@ build() {
 }
 
 case "${1:-}" in
-build | pull)
+build | pull | restart | status)
   if [ "$(git branch --show-current)" != "$BRANCH" ]; then
     echo "run this on the $BRANCH branch"
     exit 1
   fi
-  if [ "$1" = "pull" ]; then
-    pull_sources
-  else
-    shift
-    build "$@"
-  fi
+  command=$1
+  shift
+  case $command in
+  pull) pull_sources ;;
+  build) build "$@" ;;
+  restart) restart "$@" ;;
+  status) status ;;
+  esac
   ;;
 *)
-  echo "usage: $0 build [component...] | pull"
-  echo "components: $COMPONENTS"
-  echo "env: CONTAINER_ENGINE, MAIN_API_WORKER_DIR, BOT_DIR, WG_WORKER_DIR"
+  cat <<EOF
+usage: $0 <command>
+
+  build [component...]     rebuild, import into k3s, bump the dev tag, push
+  restart [component...]   restart pods without rebuilding
+  status                   Argo CD applications and pods
+  pull                     git pull in the sibling app repositories
+
+components: $COMPONENTS
+
+env: CONTAINER_ENGINE, MAIN_API_WORKER_DIR, BOT_DIR, WG_WORKER_DIR
+EOF
   exit 1
   ;;
 esac
