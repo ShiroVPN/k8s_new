@@ -178,24 +178,29 @@ forward_stop() {
 
 forward_start() {
   mkdir -p "$FORWARD_DIR"
-  # sudo runs in the background below and cannot ask for a password there.
-  sudo -v
-
   all=$(forward_targets)
   if [ $# -eq 0 ]; then
     # shellcheck disable=SC2086
     set -- $(echo "$all" | cut -d' ' -f1)
   fi
 
+  # Resolve every name first: a typo must not trigger a password prompt.
+  resolved=""
   for name in "$@"; do
     line=$(echo "$all" | awk -v name="$name" '$1 == name')
     if [ -z "$line" ]; then
-      echo "unknown panel: $name"
-      echo "available: $(echo "$all" | cut -d' ' -f1 | tr '\n' ' ')"
-      continue
+      echo "unknown panel: $name" >&2
+      echo "available: $(echo "$all" | cut -d' ' -f1 | tr '\n' ' ')" >&2
+      exit 1
     fi
-    read -r _ namespace target port local_port <<<"$line"
+    resolved="$resolved$line"$'\n'
+  done
 
+  # Forwards start in the background and cannot answer a password prompt.
+  sudo -v
+
+  while read -r name namespace target port local_port; do
+    [ -n "$name" ] || continue
     pid_file="$FORWARD_DIR/$name.pid"
     if [ -f "$pid_file" ] && sudo kill -0 "$(cat "$pid_file")" 2>/dev/null; then
       echo "$name is already forwarded on $local_port"
@@ -208,7 +213,7 @@ forward_start() {
       >"$FORWARD_DIR/$name.log" 2>&1 &
     echo $! >"$pid_file"
     echo "$name -> http://127.0.0.1:$local_port"
-  done
+  done <<<"$resolved"
 }
 
 case "${1:-}" in
