@@ -7,6 +7,7 @@ ROOT=$(pwd)
 BRANCH=dev
 COMPONENT=overlays/dev/component/kustomization.yaml
 ENGINE=${CONTAINER_ENGINE:-docker}
+BUILD_NETWORK=${BUILD_NETWORK:-host}
 
 source_dir() {
   case $1 in
@@ -117,6 +118,16 @@ sync_main() {
   echo "rebased dev onto origin/main"
 }
 
+lock_deps() {
+  dir=$1
+  # Only projects whose image installs from poetry.lock need relocking.
+  if [ ! -f "$dir/poetry.lock" ]; then
+    return 0
+  fi
+  echo "locking dependencies in $dir"
+  (cd "$dir" && poetry lock)
+}
+
 retag() {
   tag=$1
   shift
@@ -146,8 +157,9 @@ build() {
       exit 1
     }
     image=$(image_name "$component")
+    lock_deps "$dir"
     echo "building $image:$tag from $dir"
-    "$ENGINE" build --tag "$image:$tag" "$dir"
+    "$ENGINE" build --network "$BUILD_NETWORK" --tag "$image:$tag" "$dir"
     "$ENGINE" save "$image:$tag" | sudo k3s ctr -n k8s.io images import -
     images="$images $image"
   done
@@ -197,7 +209,8 @@ components: $COMPONENTS
 Shared files (deploy.sh, manifests/) are edited on main only; run sync to pick
 them up here.
 
-env: CONTAINER_ENGINE, MAIN_API_WORKER_DIR, BOT_DIR, WG_WORKER_DIR
+env: CONTAINER_ENGINE, BUILD_NETWORK, MAIN_API_WORKER_DIR, BOT_DIR,
+     WG_WORKER_DIR
 EOF
   exit 1
   ;;
