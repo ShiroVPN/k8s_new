@@ -391,6 +391,12 @@ sudo k3s kubectl -n shiro rollout restart deploy/caddy
 ./deploy.sh forward stop       # погасить все
 ```
 
+Каждый туннель под присмотром супервизора: `kubectl port-forward` завершается,
+когда под пересоздали (любой rollout или Sync с новым тегом), супервизор через
+2 секунды подключается к новому поду. В `grafana.log` это видно строкой
+`forward exited, reconnecting`. Без этого панель молча умирала до следующего
+ручного запуска.
+
 | Порт | Что | Логин |
 |---|---|---|
 | 18080 | Argo CD | admin, пароль печатает `init_cluster` |

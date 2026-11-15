@@ -184,12 +184,43 @@ EOF
 }
 
 forward_stop() {
+  # Killing needs a fresh sudo ticket, otherwise the loop keeps reconnecting.
+  sudo -v
   for pid_file in "$FORWARD_DIR"/*.pid; do
     [ -e "$pid_file" ] || continue
+    name=$(basename "$pid_file" .pid)
+    # The supervisor checks this file before reconnecting.
+    : >"$FORWARD_DIR/$name.stop"
+    [ -f "$FORWARD_DIR/$name.child" ] &&
+      sudo kill "$(cat "$FORWARD_DIR/$name.child")" 2>/dev/null || true
     sudo kill "$(cat "$pid_file")" 2>/dev/null || true
-    rm -f "$pid_file"
-    echo "stopped $(basename "$pid_file" .pid)"
+    rm -f "$pid_file" "$FORWARD_DIR/$name.child" "$FORWARD_DIR/$name.stop"
+    echo "stopped $name"
   done
+}
+
+# kubectl port-forward exits as soon as its pod is replaced, which happens on
+# every rollout and every Sync with a new tag. Keep a supervisor per panel that
+# reconnects until `forward stop` asks it to quit.
+forward_supervise() {
+  name=$1 namespace=$2 target=$3 port=$4 local_port=$5
+  log="$FORWARD_DIR/$name.log"
+  stop_file="$FORWARD_DIR/$name.stop"
+  rm -f "$stop_file"
+
+  (
+    while [ ! -e "$stop_file" ]; do
+      sudo k3s kubectl -n "$namespace" port-forward "$target" \
+        "$local_port:$port" --address 127.0.0.1 >>"$log" 2>&1 &
+      child=$!
+      echo "$child" >"$FORWARD_DIR/$name.child"
+      wait "$child" || true
+      [ -e "$stop_file" ] && break
+      echo "$(date -Is) forward exited, reconnecting" >>"$log"
+      sleep 2
+    done
+  ) &
+  echo $! >"$FORWARD_DIR/$name.pid"
 }
 
 forward_start() {
@@ -244,10 +275,7 @@ forward_start() {
     fi
     rm -f "$pid_file"
 
-    sudo k3s kubectl -n "$namespace" port-forward "$target" \
-      "$local_port:$port" --address 127.0.0.1 \
-      >"$FORWARD_DIR/$name.log" 2>&1 &
-    echo $! >"$pid_file"
+    forward_supervise "$name" "$namespace" "$target" "$port" "$local_port"
     echo "$name -> http://127.0.0.1:$local_port"
   done <<<"$resolved"
 }
@@ -341,7 +369,7 @@ usage: $0 <command>
   save_images                        export every image to $IMAGE_CACHE
   load_images                        import them back after a reinstall
   forward [--all] [panel...]         port-forward panels, default is the ones
-                                     with a password
+                                     with a password; reconnects by itself
   forward stop                       stop every forward
 EOF
   exit 1
