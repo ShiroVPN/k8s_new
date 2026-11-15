@@ -14,8 +14,15 @@ k() { sudo k3s kubectl "$@"; }
 
 node_name() { hostname | tr '[:upper:]' '[:lower:]'; }
 
+# k3s-uninstall.sh removes the systemd unit but can leave /usr/local/bin/k3s
+# behind, so a bare `command -v k3s` would skip the installer and then fail on
+# `systemctl enable`. Install whenever either half is missing.
+k3s_installed() {
+  [ -x /usr/local/bin/k3s ] && [ -f /etc/systemd/system/k3s.service ]
+}
+
 init_cluster() {
-  if ! command -v k3s >/dev/null; then
+  if ! k3s_installed; then
     curl -sfL https://get.k3s.io |
       INSTALL_K3S_VERSION="$K3S_VERSION" \
       INSTALL_K3S_EXEC="server --disable=traefik --disable=servicelb" sh -
