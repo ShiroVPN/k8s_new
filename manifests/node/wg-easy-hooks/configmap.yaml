@@ -17,11 +17,14 @@ data:
       Buffer.from("admin:" + process.env.WG_EASY_PASSWORD).toString("base64");
 
     let res;
-    for (let i = 0; i < 30 && !res; i++)
+    for (let i = 0; i < 30; i++) {
       res = await fetch(url, { headers: { authorization: auth } }).catch(
-        () => new Promise((r) => setTimeout(r, 2000)),
+        () => undefined,
       );
-    if (!res?.ok) throw new Error(`GET hooks: ${res?.status}`);
+      if (res?.ok) break;
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    if (!res?.ok) throw new Error(`GET hooks: ${res?.status ?? "no response"}`);
 
     const hooks = await res.json();
     if (hooks.postUp.startsWith(F)) {
