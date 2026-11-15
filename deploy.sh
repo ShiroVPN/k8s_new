@@ -188,15 +188,25 @@ forward_stop() {
   sudo -v
   for pid_file in "$FORWARD_DIR"/*.pid; do
     [ -e "$pid_file" ] || continue
-    name=$(basename "$pid_file" .pid)
-    # The supervisor checks this file before reconnecting.
-    : >"$FORWARD_DIR/$name.stop"
-    [ -f "$FORWARD_DIR/$name.child" ] &&
-      sudo kill "$(cat "$FORWARD_DIR/$name.child")" 2>/dev/null || true
-    sudo kill "$(cat "$pid_file")" 2>/dev/null || true
-    rm -f "$pid_file" "$FORWARD_DIR/$name.child" "$FORWARD_DIR/$name.stop"
-    echo "stopped $name"
+    forward_stop_one "$(basename "$pid_file" .pid)"
   done
+}
+
+# Is anything actually listening on this local port? A live supervisor process
+# is not enough: it keeps looping while the tunnel itself fails.
+port_listening() {
+  ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$1$"
+}
+
+forward_stop_one() {
+  name=$1
+  : >"$FORWARD_DIR/$name.stop"
+  [ -f "$FORWARD_DIR/$name.child" ] &&
+    sudo kill "$(cat "$FORWARD_DIR/$name.child")" 2>/dev/null || true
+  sudo kill "$(cat "$FORWARD_DIR/$name.pid")" 2>/dev/null || true
+  rm -f "$FORWARD_DIR/$name.pid" "$FORWARD_DIR/$name.child" \
+    "$FORWARD_DIR/$name.stop"
+  echo "stopped $name"
 }
 
 # kubectl port-forward exits as soon as its pod is replaced, which happens on
@@ -206,21 +216,37 @@ forward_supervise() {
   name=$1 namespace=$2 target=$3 port=$4 local_port=$5
   log="$FORWARD_DIR/$name.log"
   stop_file="$FORWARD_DIR/$name.stop"
+  pid_file="$FORWARD_DIR/$name.pid"
   rm -f "$stop_file"
 
   (
-    while [ ! -e "$stop_file" ]; do
+    # Own the pid file so a supervisor that was replaced by a newer one stops
+    # instead of racing it for the same local port.
+    echo "$BASHPID" >"$pid_file"
+    delay=2
+    while [ ! -e "$stop_file" ] &&
+      [ "$(cat "$pid_file" 2>/dev/null)" = "$BASHPID" ]; do
       sudo k3s kubectl -n "$namespace" port-forward "$target" \
         "$local_port:$port" --address 127.0.0.1 >>"$log" 2>&1 &
       child=$!
       echo "$child" >"$FORWARD_DIR/$name.child"
+      started=$(date +%s)
       wait "$child" || true
       [ -e "$stop_file" ] && break
-      echo "$(date -Is) forward exited, reconnecting" >>"$log"
-      sleep 2
+
+      # A tunnel that lived for a while failed on a rollout, so retry fast. One
+      # that dies immediately is a config error (wrong port, missing Service)
+      # and hammering it only fills the log.
+      if [ $(($(date +%s) - started)) -ge 30 ]; then
+        delay=2
+      else
+        delay=$((delay * 2))
+        [ "$delay" -gt 60 ] && delay=60
+      fi
+      echo "$(date -Is) forward exited, reconnecting in ${delay}s" >>"$log"
+      sleep "$delay"
     done
   ) &
-  echo $! >"$FORWARD_DIR/$name.pid"
 }
 
 forward_start() {
@@ -269,11 +295,14 @@ forward_start() {
   while read -r name namespace target port local_port _; do
     [ -n "$name" ] || continue
     pid_file="$FORWARD_DIR/$name.pid"
-    if [ -f "$pid_file" ] && sudo kill -0 "$(cat "$pid_file")" 2>/dev/null; then
+    if [ -f "$pid_file" ] && sudo kill -0 "$(cat "$pid_file")" 2>/dev/null &&
+      port_listening "$local_port"; then
       echo "$name is already forwarded on $local_port"
       continue
     fi
-    rm -f "$pid_file"
+    # A live supervisor with no listener means the tunnel keeps failing; the
+    # old loop has to go before a new one starts.
+    [ -f "$pid_file" ] && forward_stop_one "$name"
 
     forward_supervise "$name" "$namespace" "$target" "$port" "$local_port"
     echo "$name -> http://127.0.0.1:$local_port"

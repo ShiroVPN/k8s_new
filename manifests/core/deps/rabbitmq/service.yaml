@@ -8,5 +8,10 @@ spec:
   selector:
     app: rabbitmq
   ports:
-    - port: 5672
+    - name: amqp
+      port: 5672
       targetPort: 5672
+    # management UI; used by ./deploy.sh forward and by Caddy
+    - name: management
+      port: 15672
+      targetPort: 15672
