@@ -393,9 +393,13 @@ sudo k3s kubectl -n shiro rollout restart deploy/caddy
 
 Отличия от `main`, кроме тегов:
 
-- `bot` снова с `hostNetwork: true` — ноутбуку так удобнее;
-- `argocd/ksops-patch.yaml` держит `hostNetwork` у repo-server;
-- wg-easy одинаково в обеих ветках.
+- `bot` снова с `hostNetwork: true` — на ноутбуке мини-приложение открывается
+  через сеть хоста;
+- `syncPolicy.automated.prune` — пуш в `dev` применяется без нажатия Sync;
+- `scripts/shiro-k8s-netfilter.sh` и `dev.sh` есть только здесь.
+
+`argocd/ksops-patch.yaml` одинаков в обеих ветках: host networking у
+repo-server больше не нужен, кластерный DNS работает (см. раздел про VPN).
 
 Образы собираются на машине с кластером, импортируются в containerd k3s и
 никуда не публикуются:
