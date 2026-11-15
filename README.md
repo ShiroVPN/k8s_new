@@ -138,6 +138,37 @@ Secret в namespace того overlay, который его подключает
 часть не скачалась — печатает их и выходит с ошибкой: значит на ноде сломан
 DNS или egress, и лечить надо это, а не манифесты.
 
+## Пересоздание кластера без пересборки
+
+`k3s-uninstall.sh` удаляет `/var/lib/rancher/k3s`, поэтому вместе с кластером
+исчезают все образы в containerd — и скачанные, и собранные локально.
+Сохранить их до удаления:
+
+```bash
+./deploy.sh save_images      # -> /var/lib/shiro-k8s-images.tar
+sudo /usr/local/bin/k3s-uninstall.sh
+./deploy.sh init_cluster
+./deploy.sh load_images      # секунды вместо сборки
+```
+
+Файл лежит вне `/var/lib/rancher`, поэтому переживает uninstall. Другой путь —
+`IMAGE_CACHE=/path/to/images.tar ./deploy.sh save_images`.
+
+Данные PVC при этом теряются: если в Postgres есть нужное, сначала дамп.
+
+```bash
+sudo k3s kubectl -n shiro exec deploy/postgres -- pg_dump -U shiro shiro \
+  > ~/shiro-db-backup.sql
+```
+
+Восстановление после `init_cluster` (база пустая, миграции прогонит
+init-контейнер):
+
+```bash
+sudo k3s kubectl -n shiro exec -i deploy/postgres -- psql -U shiro -d shiro \
+  < ~/shiro-db-backup.sql
+```
+
 ## Чем отличается от compose
 
 - **Миграции** — init-контейнер `migrate` у `main-api-worker` (в compose это

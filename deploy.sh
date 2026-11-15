@@ -7,6 +7,8 @@ K3S_VERSION=v1.37.2+k3s1
 ARGOCD_VERSION=v3.6.1
 NAMESPACE=shiro
 FORWARD_DIR=${TMPDIR:-/tmp}/shiro-forward
+# Outside /var/lib/rancher, so it survives k3s-uninstall.sh.
+IMAGE_CACHE=${IMAGE_CACHE:-/var/lib/shiro-k8s-images.tar}
 
 k() { sudo k3s kubectl "$@"; }
 
@@ -275,12 +277,43 @@ cache_images() {
   fi
 }
 
+image_platform() {
+  case $(uname -m) in
+  x86_64) echo linux/amd64 ;;
+  aarch64 | arm64) echo linux/arm64 ;;
+  *) echo "linux/$(uname -m)" ;;
+  esac
+}
+
+# k3s-uninstall.sh removes /var/lib/rancher/k3s, so every image that was pulled
+# or imported into containerd goes with it. Export them first: re-importing is
+# seconds, rebuilding dev images can be minutes.
+save_images() {
+  sudo -v
+  # shellcheck disable=SC2046
+  sudo k3s ctr -n k8s.io images export \
+    --platform "$(image_platform)" "$IMAGE_CACHE" \
+    $(sudo k3s ctr -n k8s.io images ls -q | grep -v '^sha256:' | sort -u)
+  echo "wrote $IMAGE_CACHE ($(du -h "$IMAGE_CACHE" | cut -f1))"
+}
+
+load_images() {
+  if [ ! -f "$IMAGE_CACHE" ]; then
+    echo "no image cache at $IMAGE_CACHE, set IMAGE_CACHE to another path"
+    exit 1
+  fi
+  sudo k3s ctr -n k8s.io images import \
+    --platform "$(image_platform)" "$IMAGE_CACHE"
+}
+
 case "${1:-}" in
 init_cluster) init_cluster ;;
 join_cluster) join_cluster "${3:?usage: $0 join_cluster --profile <name>}" ;;
 label) label "${3:?usage: $0 label --profile <name>}" ;;
 run) run "${3:?usage: $0 run --profile <name>}" ;;
 cache_images) cache_images ;;
+save_images) save_images ;;
+load_images) load_images ;;
 forward)
   if [ "${2:-}" = "stop" ]; then
     forward_stop
@@ -298,6 +331,8 @@ usage: $0 <command>
   label --profile <name>             mark this node for a profile
   run --profile <name>               create the Argo CD Application
   cache_images                       pull third-party images into containerd
+  save_images                        export every image to $IMAGE_CACHE
+  load_images                        import them back after a reinstall
   forward [--all] [panel...]         port-forward panels, default is the ones
                                      with a password
   forward stop                       stop every forward
