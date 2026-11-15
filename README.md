@@ -52,6 +52,7 @@ manifests/node/
   peerhub-wireguard-worker/ pvc, deployment
   peerhub-heartbeat/        deployment
   wg-easy-hooks/            configmap, job
+manifests/tests/            Job'ы shiro_tests (не входят в Argo CD)
 manifests/observability/
   config/             otel-collector, prometheus, grafana provisioning
   grafana/dashboards/ Function_calls.json, Logs.json (через configMapGenerator)
@@ -201,7 +202,7 @@ sudo k3s kubectl -n shiro exec -i deploy/postgres -- psql -U shiro -d shiro \
   `k8s`). Наружу не публикуется, доступ через port-forward.
 - **Телеметрия** — отдельный namespace `observability`: otel-collector, jaeger,
   prometheus, elasticsearch, grafana. Конфиги взяты из
-  `peerhub_wireguard_worker/tests`, дашборды скопированы в
+  `shiro_tests/stack/observability`, дашборды скопированы в
   `manifests/observability/grafana/dashboards` и приезжают через
   `configMapGenerator`. Приложения шлют OTLP на
   `otel-collector.observability.svc.cluster.local:4317`; сейчас это умеет
@@ -216,6 +217,27 @@ sudo k3s kubectl -n shiro exec -i deploy/postgres -- psql -U shiro -d shiro \
 - **Не перенесено:** `backup.sh`, `monitor.sh`, `tg.sh`, `topup.sh` (хостовые
   cron-скрипты поверх `docker compose`) и `watchdog/` (живёт на другом
   сервере). Значит, бэкапов и алертов в этой схеме пока нет.
+
+## Тесты
+
+Все наборы тестов живут в `ShiroVPN/shiro_tests` — один образ, одна команда
+`pytest`, конфиг из переменных окружения. Здесь только Job'ы, которые этот
+образ запускают в развёрнутом стеке:
+
+```bash
+./scripts/run-tests.sh
+```
+
+`shiro-tests-core` гоняет бота и `main_api` в namespace `shiro`,
+`shiro-tests-peerhub-wireguard` — контракт `peerhub.*` в
+`shiro-peerhub-wg`. Скрипт копирует `PEERHUB_ID` ноды в ConfigMap
+`tests-config`: `main_api`-тесты будят хаб heartbeat'ом, и id должен быть
+тем самым. Job'ы не входят ни в одно приложение Argo CD — тесты пишут в базу,
+а Job после Sync запускается заново. Подробности и что нужно для полного
+прогона (платежи, 3x-ui) — в `manifests/tests/README.md`.
+
+На PR в `main` `.github/workflows/tests.yml` проверяет манифесты и, если в
+секретах есть `KUBECONFIG_B64`, запускает те же Job'ы в тестовом кластере.
 
 ## Что нужно на сервере
 

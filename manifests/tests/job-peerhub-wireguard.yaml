@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: shiro-tests-peerhub-wireguard
+  namespace: shiro-peerhub-wg
+  labels:
+    app: shiro-tests
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  template:
+    metadata:
+      labels:
+        app: shiro-tests
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr
+      containers:
+        - name: pytest
+          image: ghcr.io/shirovpn/shiro_tests:0.0.1
+          args:
+            - pytest
+            - tests/peerhub_wireguard
+          env:
+            - name: BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: BROKER_URL
+            - name: BROKER_RESULT_BACKEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: BACKEND_URL
+            - name: PEERHUB_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: PEERHUB_ID
+            - name: WG_EASY_URL
+              value: http://wg-easy:51821
+            - name: WG_EASY_USERNAME
+              value: admin
+            - name: WG_EASY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: WG_EASY_PASSWORD
+            # The worker's own timeout is 1 s: it answers that fast or it is
+            # broken, and the test process can afford to wait less.
+            - name: PEERHUB_WORKER_WAIT_RESULT_TIMEOUT
+              value: "10"
+            - name: PEERHUB_WORKER_WAIT_RESULT_CHECKOUT_INTERVAL
+              value: "0.05"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi

@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: shiro-tests-core
+  namespace: shiro
+  labels:
+    app: shiro-tests
+spec:
+  # The suites mutate the stack (clients, subscriptions, transactions), so a
+  # retry would just re-run against half-changed state: show the failure.
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  template:
+    metadata:
+      labels:
+        app: shiro-tests
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr
+      containers:
+        - name: pytest
+          image: ghcr.io/shirovpn/shiro_tests:0.0.1
+          args:
+            - pytest
+            - tests/bot
+            - tests/main_api
+            # Payment tasks call Platega at the URL main_api_worker runs
+            # with, not at the tests' own: run this module where the worker
+            # points at tests/main_api/fake_platega.py.
+            - --deselect
+            - tests/main_api/worker/test_payments.py
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: DATABASE_URL
+            - name: BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: BROKER_URL
+            - name: BACKEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: BACKEND_URL
+            # The peerhub suite of this image reads the same Redis under the
+            # name its own env class uses.
+            - name: BROKER_RESULT_BACKEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: BACKEND_URL
+            - name: CONFIG_PATH
+              value: /config/config.yml
+            # Made by scripts/run-tests.sh from the node's peerhub-config:
+            # heartbeat() must name the hub the tasks are routed to.
+            - name: PEERHUB_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: tests-config
+                  key: PEERHUB_ID
+            - name: PEERHUB_LAST_SEEN_LIMIT_IN_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  name: core-config
+                  key: PEERHUB_LAST_SEEN_LIMIT_IN_SECONDS
+            - name: MAIN_API_WORKER_WAIT_RESULT_TIMEOUT
+              value: "10"
+            - name: DATABASE_CONNECTION_TIMEOUT
+              value: "10"
+            - name: WEBHOOK_URL
+              value: http://main-api-webhook:8080/platega/callback
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      volumes:
+        # The suites read the same config.yml the worker runs with.
+        - name: config
+          configMap:
+            name: main-api-config
+            items:
+              - key: config.yml
+                path: config.yml
