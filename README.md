@@ -190,13 +190,11 @@ sudo k3s kubectl -n shiro exec -i deploy/postgres -- psql -U shiro -d shiro \
   Caddy проксирует мини-приложение туда же. Сеть хоста нужна была только для
   локального деплоя, в ветке `dev` она возвращается.
 - **Caddy включён**: держит 80/443 на хосте и обслуживает `WEBHOOK_DOMAIN`,
-  `MINI_APP_DOMAIN` и `ADMIN_DOMAIN`. `ADMIN_DOMAIN` — заглушка на
-  `admin.example.com`: имени пока нет, поэтому блок стоит с `tls internal`
-  (сертификат от собственного CA Caddy), а из панелей по пути отдаются только
-  Grafana (`/grafana/`) и Jaeger (`/jaeger/`). Остальные панели строят
-  абсолютные ссылки и требуют отдельного имени — см. раздел «Доступ к панелям».
-  Когда появится A-запись: вписать домен в `core-config` и убрать
-  `tls internal`.
+  `MINI_APP_DOMAIN` и панели под `ADMIN_DOMAIN`. `ADMIN_DOMAIN` — заглушка на
+  `admin.example.com`: имени пока нет, поэтому все сайты стоят с
+  `tls internal` (сертификат от собственного CA Caddy). Каждая панель — на
+  своём поддомене, см. раздел «Доступ к панелям». Когда появится A-запись:
+  вписать домен в `core-config` и убрать `tls internal`.
 - **Redis без тома** (как в compose): результаты задач живут час, терять их
   не страшно.
 - **CloudBeaver** — UI к Postgres, добавлен сверх compose (был в черновике
@@ -330,33 +328,53 @@ K3S_URL=https://<ядро>:6443 K3S_TOKEN=<токен> ./deploy.sh join_cluster 
 ## Доступ к панелям
 
 Caddy работает в pod-сети, поэтому Service-имена резолвятся его DNS'ом и
-`kubectl port-forward` не нужен вообще:
+`kubectl port-forward` не нужен вообще. Каждая панель сидит на своём
+поддомене `ADMIN_DOMAIN`, потому что под путём часть из них ломается.
 
 ```caddy
 {$ADMIN_DOMAIN} {
         tls internal
-        redir / /grafana/ 302
-        @grafana path /grafana /grafana/*
-        handle @grafana {
-                reverse_proxy grafana.observability.svc.cluster.local:3000
-        }
-        @jaeger path /jaeger /jaeger/*
-        handle @jaeger {
-                reverse_proxy jaeger.observability.svc.cluster.local:16686
-        }
+        redir https://grafana.{$ADMIN_DOMAIN}{uri} 302
+}
+
+grafana.{$ADMIN_DOMAIN} {
+        tls internal
+        reverse_proxy grafana.observability.svc.cluster.local:3000
+}
+
+rabbitmq.{$ADMIN_DOMAIN} {
+        tls internal
+        reverse_proxy rabbitmq.shiro.svc.cluster.local:15672
 }
 ```
 
-Чтобы это заработало, у сервисов выставлены префиксы:
+Раздаются только панели со своим логином — Grafana, RabbitMQ, CloudBeaver,
+wg-easy. Prometheus, Jaeger и Elasticsearch аутентификации не имеют, наружу
+их не выставляем: они доступны через `./deploy.sh forward --all` и из
+Grafana (там датасорсы на оба).
 
-- Grafana — `GF_SERVER_SERVE_FROM_SUB_PATH=true` и
-  `GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/`;
-- Jaeger — `QUERY_BASE_PATH=/jaeger`, поэтому датасорс в Grafana указывает на
-  `http://jaeger:16686/jaeger`.
+Подпуть (`admin.example.com/grafana/`) сознательно не используется: он
+требует `GF_SERVER_SERVE_FROM_SUB_PATH` и `QUERY_BASE_PATH`, а `%(domain)s` в
+Grafana подставляет `GF_SERVER_DOMAIN` без порта — port-forward тогда
+редиректит на `http://localhost/grafana/` и всё ломается. С поддоменами
+манифесты остаются ровно такими, как у upstream.
 
-Что так не отдаётся и почему: Prometheus, Elasticsearch, RabbitMQ, CloudBeaver
-и wg-easy строят абсолютные ссылки от корня и без своего имени ломаются.
-Для них нужен либо отдельный поддомен на каждый, либо `./deploy.sh forward`.
+Локальная проверка без DNS — дописать имена в `/etc/hosts`:
+
+```
+127.0.0.1 grafana.admin.example.com rabbitmq.admin.example.com
+127.0.0.1 cloudbeaver.admin.example.com wg-easy.admin.example.com
+```
+
+Браузер будет ругаться на неизвестный CA: сертификат подписан внутренним CA
+Caddy (`/data/caddy/pki/authorities/local/root.crt` на PVC `caddy-data`).
+
+Caddyfile приезжает через ConfigMap и смонтирован через `subPath`, поэтому при
+правке конфига под надо пересоздать вручную:
+
+```bash
+sudo k3s kubectl -n shiro rollout restart deploy/caddy
+```
 
 Путь через port-forward остался и никуда не делся — он удобнее на ноутбуке,
 где нет DNS и настоящего сертификата.
