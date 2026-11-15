@@ -423,44 +423,106 @@ Argo CD сам замечает пуш за минуту (`timeout.reconciliatio
 для одного сервиса). Тег `dev-0` в `overlays/dev/component` — начальная
 заглушка, её заменяет первая же сборка.
 
-### Если VPN ломает Sync
+### Если VPN ломает DNS и Sync
 
-Кластер k3s живёт в `10.42.0.0/16` (поды) и `10.43.0.0/16` (сервисы), а
-v2raya в режиме tproxy забирает себе всю маршрутизацию, включая приватные
-диапазоны. Тогда под не может достучаться до CoreDNS
-(`10.43.0.10:53`), и Argo падает с ошибкой вида:
+Симптом: поды падают с `Temporary failure in name resolution`, а Argo пишет
 
 ```
-dns: A record lookup error: lookup argocd-repo-server on 10.43.0.10:53:
-read udp 10.42.0.12:36158->10.43.0.10:53: read: connection refused
+error resolving repo revision: rpc error: code = Unavailable desc = dns:
+A record lookup error: lookup argocd-repo-server on 10.43.0.10:53:
+read udp 10.42.0.12:44340->10.43.0.10:53: read: connection refused
 ```
 
-Проверить, что адрес кластера уходит в туннель:
+Причина в том, как v2raya ставит правила. В таблице `inet v2raya`:
+
+```
+chain tp_pre {
+        type nat hook prerouting priority dstnat - 5;
+        meta l4proto { tcp, udp } th dport 53 jump dns_redirect
+}
+chain dns_redirect {
+        meta mark & 0x00000080 == 0x00000080 return
+        meta l4proto { tcp, udp } th dport 53 redirect to :52353
+}
+```
+
+Правило ловит **любой** пакет на порт 53 и перенаправляет его на
+`127.0.0.1:52353`. В сетевом namespace пода такого порта нет, поэтому запрос к
+CoreDNS умирает. Обратите внимание: в `tp_rule` есть исключения для `veth*` и
+`br-*`, а в `dns_redirect` их нет — поэтому TCP до Postgres работает, а DNS
+нет. Правки RoutingA на это не влияют: правило не смотрит на адрес.
+
+Чинится двумя шагами, оба на машине с кластером.
+
+**1. Пометить трафик кластера как «не проксировать».** v2raya пропускает
+пакеты с меткой `0x80`, поэтому:
 
 ```bash
-./dev.sh diagnose                  # маршруты, CoreDNS, его endpoints, PVC
+sudo install -m 755 scripts/shiro-k8s-netfilter.sh /usr/local/sbin/
 ```
 
-В выводе важны две строки: `ip route get 10.43.0.10` должен показывать
-локальный маршрут (не `tun`/`wg`/`v2raya`), а `get endpoints kube-dns` должен
-содержать IP пода CoreDNS. Пустой список endpoints и есть причина
-`connection refused`: kube-proxy отбивает запросы к сервису без эндпоинтов.
+и юнит, который применяет правила после старта v2raya:
 
-Лечится на стороне VPN: завернуть приватные адреса в `direct`. В RoutingA у
-v2raya достаточно одной строки над `default`:
+```ini
+# /etc/systemd/system/shiro-k8s-netfilter.service
+[Unit]
+Description=Keep k3s pod/service traffic out of v2raya transparent proxy
+After=v2raya.service network-online.target
+Wants=network-online.target
 
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/shiro-k8s-netfilter.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
 ```
-ip(geoip:private) -> direct
-default: proxy
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now shiro-k8s-netfilter
 ```
 
-Если RoutingA не используется, помогает переключить исходящий режим v2raya с
-`tproxy` на `system proxy`: правила netfilter при этом не ставятся и трафик
-подов никто не перехватывает.
+Правила живут в собственной таблице `inet shiro_k8s`, поэтому перезапуск
+v2raya их не сносит. Если v2raya обновит схему правил, скрипт можно
+перезапустить руками.
 
-То же самое делают галочки «Bypass LAN»/«Пропускать локальные адреса» в
-других клиентах. Менять CIDR кластера смысла нет: `geoip:private` покрывает
-и `172.16.0.0/12`.
+**2. Дать CoreDNS нормальный upstream.** k3s копирует `/etc/resolv.conf` ноды
+в под CoreDNS (`dnsPolicy: Default`), а там `nameserver 127.0.0.1` — то есть
+сам CoreDNS. Внешние имена не резолвятся даже после шага 1. Отдельный файл
+только для kubelet:
+
+```bash
+echo 'nameserver 192.168.1.1' | sudo tee /etc/resolv.k8s.conf
+sudo tee /etc/rancher/k3s/config.yaml <<'EOF'
+kubelet-arg:
+  - "resolv-conf=/etc/resolv.k8s.conf"
+EOF
+sudo systemctl restart k3s
+```
+
+`192.168.1.1` — роутер; подойдёт любой резолвер, доступный из pod-сети.
+Хостовый `/etc/resolv.conf` при этом не трогается, v2raya продолжает им
+управлять.
+
+Проверка:
+
+```bash
+./dev.sh diagnose        # маршруты, CoreDNS, endpoints, PVC, образы
+```
+
+и запрос изнутри кластера — подставьте тег, который сейчас в
+`overlays/dev/component`:
+
+```bash
+sudo k3s kubectl -n shiro run dnstest --rm -i --restart=Never \
+  --image=ghcr.io/shirovpn/main_api_worker:dev-20261114-225930 \
+  -- /venv/bin/python -c 'import socket;print(socket.gethostbyname("postgres"))'
+```
+
+Должны резолвиться и `postgres` (внутреннее имя), и `api.telegram.org`
+(внешнее).
 
 Что нужно на машине с кластером:
 
