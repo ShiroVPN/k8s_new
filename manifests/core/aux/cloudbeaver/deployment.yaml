@@ -56,6 +56,8 @@ spec:
                   key: CB_ADMIN_PASSWORD
             - name: CB_SERVER_NAME
               value: shiro
+            - name: CLOUDBEAVER_APP_SUPPORTS_CUSTOM_CONNECTIONS
+              value: "true"
             - name: CLOUDBEAVER_DB_INITIAL_DATA
               value: /initial-data/initial-data.conf
           volumeMounts:
