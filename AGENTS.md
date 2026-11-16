@@ -46,3 +46,38 @@ comments: only the shebang and tool directives such as
   runs before any of them starts and every panel name is resolved first: a typo
   must cost an error, not a password prompt. `forward stop` kills processes and
   needs the same fresh sudo ticket, otherwise the loop keeps reconnecting.
+
+### v2raya and pod egress
+
+- Three v2raya settings decide whether pods leave through the proxy: `veth*`
+  absent from Settings → Excluded Interface Prefixes, the implementation
+  `redirect`, and Port Sharing on. Port Sharing is the one that moves the
+  transparent sink off `127.0.0.1:52345` to `*:52345`.
+- Why the sink must not stay on loopback: `redirect` rewrites a forwarded SYN to
+  the incoming interface's address, which for a pod is `cni0`
+  (`10.42.0.1:52345`); a loopback-only listener answers `RST` and the pod sees a
+  refused or timed-out connect. That is also why `route_localnet` does not help
+  here — no loopback destination is involved once Port Sharing is on.
+- Keep IP Forward on. `tproxy` was tried and left the pod's SYN timing out; do
+  not switch to it without reading `ip rule` and the local route table first.
+- Port Sharing exposes `20170–20172` and `52345` to the LAN and the tailnet
+  without authentication; that is fine for one's own PC and wrong anywhere else.
+
+### scripts/shiro-k8s-netfilter.sh
+
+- One root run from the repo sets the host up from scratch: installs itself to
+  `/usr/local/sbin/shiro-k8s-netfilter.sh`, writes and starts
+  `shiro-k8s-netfilter.service`, rebuilds `table inet shiro_k8s` (v2raya's
+  bypass mark `0x80` on cluster CIDRs and on pod DNS), writes
+  `/etc/resolv.k8s.conf` with the default gateway plus the
+  `kubelet-arg: resolv-conf` line in `/etc/rancher/k3s/config.yaml`, and finally
+  checks the v2raya settings above, printing which one is wrong.
+- Run from the installed path (the unit's `ExecStart`) it only rebuilds the
+  table, so re-running the repo copy after editing the rules updates the host.
+- The CoreDNS half is needed because the host `resolv.conf` is `127.0.0.1`
+  (v2raya's own DNS): k3s copies it into CoreDNS, which then resolves nothing.
+  k3s reads `config.yaml` at start, so with a running cluster the script asks
+  for `systemctl restart k3s` instead of doing it.
+- If `config.yaml` already carries a `kubelet-arg` block without `resolv-conf`,
+  the script refuses to append a second key and asks for the line by hand.
+
