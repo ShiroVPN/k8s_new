@@ -39,7 +39,7 @@ data:
         variables = {
             "credentials": {
                 "user": os.environ["CB_ADMIN_NAME"],
-                "password": os.environ["CB_ADMIN_PASSWORD"],
+                "password": os.environ["CB_ADMIN_PASSWORD"].rstrip("\r\n"),
             }
         }
         for attempt in range(ATTEMPTS):
