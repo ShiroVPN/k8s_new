@@ -7,16 +7,13 @@ K3S_VERSION=v1.37.2+k3s1
 ARGOCD_VERSION=v3.6.1
 NAMESPACE=shiro
 FORWARD_DIR=${TMPDIR:-/tmp}/shiro-forward
-# Outside /var/lib/rancher, so it survives k3s-uninstall.sh.
+FORWARD_ADDRESS=${FORWARD_ADDRESS:-127.0.0.1}
 IMAGE_CACHE=${IMAGE_CACHE:-/var/lib/shiro-k8s-images.tar}
 
 k() { sudo k3s kubectl "$@"; }
 
 node_name() { hostname | tr '[:upper:]' '[:lower:]'; }
 
-# k3s-uninstall.sh removes the systemd unit but can leave /usr/local/bin/k3s
-# behind, so a bare `command -v k3s` would skip the installer and then fail on
-# `systemctl enable`. Install whenever either half is missing.
 k3s_installed() {
   [ -x /usr/local/bin/k3s ] && [ -f /etc/systemd/system/k3s.service ]
 }
@@ -33,7 +30,6 @@ init_cluster() {
   k wait --for=condition=Ready node/"$node" --timeout=120s
   k label node "$node" shiro.io/core=true --overwrite
 
-  # Elasticsearch mmaps its indices and refuses to start below this limit.
   sudo sysctl -w vm.max_map_count=262144 >/dev/null
 
   k create namespace "$NAMESPACE" --dry-run=client -o yaml | k apply -f -
@@ -41,7 +37,6 @@ init_cluster() {
   k apply --server-side -n argocd -f \
     "https://raw.githubusercontent.com/argoproj/argo-cd/$ARGOCD_VERSION/manifests/install.yaml"
   k -n argocd rollout status deploy/argocd-server --timeout=300s
-  # Short reconciliation so a push to the dev branch lands in a minute.
   k -n argocd patch configmap argocd-cm --type merge \
     -p '{"data":{"kustomize.buildOptions":"--enable-alpha-plugins --enable-exec","timeout.reconciliation":"60s"}}'
 
@@ -157,8 +152,6 @@ label() {
 run() {
   profile=$1
   peerhub_configure "$profile"
-  # The file on disk comes from the current branch, so say out loud which
-  # branch Argo CD is about to follow.
   branch=$(git branch --show-current 2>/dev/null || echo "detached")
   revision=$(sed -n 's/^ *targetRevision: *//p' "argocd/$profile.yaml")
   echo "applying argocd/$profile.yaml from branch '$branch' (targetRevision: $revision)"
@@ -167,9 +160,6 @@ run() {
   echo "sync it by hand in the Argo CD panel: $profile"
 }
 
-# name namespace target container-port local-port password
-# password=no panels have no authentication of their own; they are skipped by
-# default and only come up with --all.
 forward_targets() {
   cat <<EOF
 argocd argocd svc/argocd-server 443 18080 yes
@@ -184,7 +174,6 @@ EOF
 }
 
 forward_stop() {
-  # Killing needs a fresh sudo ticket, otherwise the loop keeps reconnecting.
   sudo -v
   for pid_file in "$FORWARD_DIR"/*.pid; do
     [ -e "$pid_file" ] || continue
@@ -192,8 +181,6 @@ forward_stop() {
   done
 }
 
-# Is anything actually listening on this local port? A live supervisor process
-# is not enough: it keeps looping while the tunnel itself fails.
 port_listening() {
   ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$1$"
 }
@@ -209,9 +196,6 @@ forward_stop_one() {
   echo "stopped $name"
 }
 
-# kubectl port-forward exits as soon as its pod is replaced, which happens on
-# every rollout and every Sync with a new tag. Keep a supervisor per panel that
-# reconnects until `forward stop` asks it to quit.
 forward_supervise() {
   name=$1 namespace=$2 target=$3 port=$4 local_port=$5
   log="$FORWARD_DIR/$name.log"
@@ -220,23 +204,18 @@ forward_supervise() {
   rm -f "$stop_file"
 
   (
-    # Own the pid file so a supervisor that was replaced by a newer one stops
-    # instead of racing it for the same local port.
     echo "$BASHPID" >"$pid_file"
     delay=2
     while [ ! -e "$stop_file" ] &&
       [ "$(cat "$pid_file" 2>/dev/null)" = "$BASHPID" ]; do
       sudo k3s kubectl -n "$namespace" port-forward "$target" \
-        "$local_port:$port" --address 127.0.0.1 >>"$log" 2>&1 &
+        "$local_port:$port" --address "$FORWARD_ADDRESS" >>"$log" 2>&1 &
       child=$!
       echo "$child" >"$FORWARD_DIR/$name.child"
       started=$(date +%s)
       wait "$child" || true
       [ -e "$stop_file" ] && break
 
-      # A tunnel that lived for a while failed on a rollout, so retry fast. One
-      # that dies immediately is a config error (wrong port, missing Service)
-      # and hammering it only fills the log.
       if [ $(($(date +%s) - started)) -ge 30 ]; then
         delay=2
       else
@@ -269,7 +248,6 @@ forward_start() {
     fi
   fi
 
-  # Resolve every name first: a typo must not trigger a password prompt.
   resolved=""
   for name in "$@"; do
     line=$(echo "$targets" | awk -v name="$name" '$1 == name')
@@ -289,7 +267,6 @@ forward_start() {
     resolved="$resolved$line"$'\n'
   done
 
-  # Forwards start in the background and cannot answer a password prompt.
   sudo -v
 
   while read -r name namespace target port local_port _; do
@@ -300,17 +277,13 @@ forward_start() {
       echo "$name is already forwarded on $local_port"
       continue
     fi
-    # A live supervisor with no listener means the tunnel keeps failing; the
-    # old loop has to go before a new one starts.
     [ -f "$pid_file" ] && forward_stop_one "$name"
 
     forward_supervise "$name" "$namespace" "$target" "$port" "$local_port"
-    echo "$name -> http://127.0.0.1:$local_port"
+    echo "$name -> http://$FORWARD_ADDRESS:$local_port"
   done <<<"$resolved"
 }
 
-# Pull every third-party image into the node's containerd. Useful before a
-# rollout on a slow link, and the only fix when host DNS or egress is flaky.
 cache_images() {
   images=$(
     for dir in manifests/core manifests/node manifests/observability; do
@@ -349,9 +322,6 @@ image_platform() {
   esac
 }
 
-# k3s-uninstall.sh removes /var/lib/rancher/k3s, so every image that was pulled
-# or imported into containerd goes with it. Export them first: re-importing is
-# seconds, rebuilding dev images can be minutes.
 save_images() {
   sudo -v
   # shellcheck disable=SC2046
@@ -400,6 +370,10 @@ usage: $0 <command>
   forward [--all] [panel...]         port-forward panels, default is the ones
                                      with a password; reconnects by itself
   forward stop                       stop every forward
+
+  FORWARD_ADDRESS=<ip>               address the forwards listen on, default
+                                     127.0.0.1; set the Tailscale IP to reach
+                                     the panels over Tailscale
 EOF
   exit 1
   ;;
