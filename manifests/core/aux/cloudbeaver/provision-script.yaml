@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudbeaver-provision-script
+data:
+  provision.py: |
+    import http.cookiejar
+    import json
+    import os
+    import sys
+    import time
+    import urllib.request
+
+    BASE = os.environ["CLOUDBEAVER_URL"].rstrip("/")
+    API = f"{BASE}/api/gql/"
+    CONNECTION = "shiro"
+    ATTEMPTS = 40
+    DELAY = 3
+
+    LOGIN = (
+        "query ($credentials: Object!) { "
+        'authLogin(provider: "local", credentials: $credentials, linkUser: false) '
+        "{ authId } }"
+    )
+    LIST = "query { userConnections { id name } }"
+    CREATE = "mutation ($config: ConnectionConfig!) { createConnection(config: $config) { id name } }"
+
+
+    def gql(opener, query, variables=None):
+        payload = json.dumps({"query": query, "variables": variables or {}}).encode()
+        request = urllib.request.Request(
+            API, data=payload, headers={"Content-Type": "application/json"}
+        )
+        with opener.open(request, timeout=30) as response:
+            return json.load(response)
+
+
+    def login(opener):
+        variables = {
+            "credentials": {
+                "user": os.environ["CB_ADMIN_NAME"],
+                "password": os.environ["CB_ADMIN_PASSWORD"],
+            }
+        }
+        for attempt in range(ATTEMPTS):
+            try:
+                answer = gql(opener, LOGIN, variables)
+            except OSError as error:
+                answer = {"errors": [str(error)]}
+            if not answer.get("errors"):
+                return
+            if attempt == ATTEMPTS - 1:
+                sys.exit(f"cannot log in: {answer['errors']}")
+            time.sleep(DELAY)
+
+
+    def call(opener, query, variables=None):
+        answer = gql(opener, query, variables)
+        if answer.get("errors"):
+            sys.exit(f"{query}: {answer['errors']}")
+        return answer["data"]
+
+
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+    )
+    login(opener)
+
+    connections = call(opener, LIST)["userConnections"]
+    if any(item["name"] == CONNECTION for item in connections):
+        print(f"connection {CONNECTION} already exists")
+        sys.exit(0)
+
+    call(
+        opener,
+        CREATE,
+        {
+            "config": {
+                "name": CONNECTION,
+                "driverId": "postgresql:postgres-jdbc",
+                "host": os.environ["POSTGRES_HOST"],
+                "port": os.environ["POSTGRES_PORT"],
+                "databaseName": os.environ["POSTGRES_DB"],
+                "authModelId": "native",
+                "saveCredentials": True,
+                "configurationType": "MANUAL",
+                "credentials": {
+                    "user": os.environ["POSTGRES_USER"],
+                    "password": os.environ["POSTGRES_PASSWORD"],
+                },
+            }
+        },
+    )
+    print(f"connection {CONNECTION} created")

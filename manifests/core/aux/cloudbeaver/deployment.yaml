@@ -33,6 +33,8 @@ spec:
               value: shiro
             - name: CLOUDBEAVER_APP_SUPPORTS_CUSTOM_CONNECTIONS
               value: "true"
+            - name: CLOUDBEAVER_APP_ANONYMOUS_ACCESS_ENABLED
+              value: "false"
             - name: CLOUDBEAVER_DB_INITIAL_DATA
               value: /initial-data/initial-data.conf
           volumeMounts:
@@ -49,6 +51,43 @@ spec:
             requests:
               cpu: 50m
               memory: 256Mi
+        - name: provision
+          image: python:3.13-alpine
+          command:
+            - sh
+            - -c
+            - python /scripts/provision.py && exec tail -f /dev/null
+          env:
+            - name: CLOUDBEAVER_URL
+              value: http://cloudbeaver:8978
+            - name: CB_ADMIN_NAME
+              value: admin
+            - name: CB_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: CB_ADMIN_PASSWORD
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: shiro
+            - name: POSTGRES_USER
+              value: shiro
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -56,3 +95,6 @@ spec:
         - name: initial
           configMap:
             name: cloudbeaver-initial-data
+        - name: script
+          configMap:
+            name: cloudbeaver-provision-script

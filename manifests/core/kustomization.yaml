@@ -18,6 +18,7 @@ resources:
   - aux/caddy/deployment.yaml
   - aux/cloudbeaver/pvc.yaml
   - aux/cloudbeaver/initial-data.yaml
+  - aux/cloudbeaver/provision-script.yaml
   - aux/cloudbeaver/deployment.yaml
   - aux/cloudbeaver/service.yaml
   # apps: our own code
