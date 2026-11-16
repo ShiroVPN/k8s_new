@@ -284,6 +284,20 @@ forward_start() {
   done <<<"$resolved"
 }
 
+full_image() {
+  case $1 in
+  */*) registry=${1%%/*} ;;
+  *)
+    echo "docker.io/library/$1"
+    return
+    ;;
+  esac
+  case $registry in
+  *.* | *:* | localhost) echo "$1" ;;
+  *) echo "docker.io/$1" ;;
+  esac
+}
+
 cache_images() {
   images=$(
     for dir in manifests/core manifests/node manifests/observability; do
@@ -293,12 +307,13 @@ cache_images() {
 
   failed=""
   for image in $images; do
-    if sudo k3s ctr -n k8s.io images ls -q | grep -qx "$image"; then
+    full=$(full_image "$image")
+    if sudo k3s ctr -n k8s.io images ls -q | grep -qx "$full"; then
       echo "cached $image"
       continue
     fi
     echo "pulling $image"
-    if sudo k3s ctr -n k8s.io images pull "$image" >/dev/null; then
+    if sudo k3s ctr -n k8s.io images pull "$full" >/dev/null; then
       echo "ok $image"
     else
       echo "FAILED $image"
