@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+configMapGenerator:
+  - name: core-config
+    envs:
+      - core.env
+  - name: main-api-config
+    files:
+      - config.yml=main_api_config.yaml
+  - name: caddy-config
+    files:
+      - Caddyfile
+generatorOptions:
+  disableNameSuffixHash: true

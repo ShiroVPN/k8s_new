@@ -28,17 +28,17 @@ spec:
             - name: WEBHOOK_DOMAIN
               valueFrom:
                 configMapKeyRef:
-                  name: core-config
+                  name: env-config
                   key: WEBHOOK_DOMAIN
             - name: MINI_APP_DOMAIN
               valueFrom:
                 configMapKeyRef:
-                  name: core-config
+                  name: env-config
                   key: MINI_APP_DOMAIN
             - name: ADMIN_DOMAIN
               valueFrom:
                 configMapKeyRef:
-                  name: core-config
+                  name: env-config
                   key: ADMIN_DOMAIN
           volumeMounts:
             - name: caddyfile

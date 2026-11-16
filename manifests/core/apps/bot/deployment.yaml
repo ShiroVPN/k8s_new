@@ -46,19 +46,19 @@ spec:
             - name: STUB_PAYMENT
               valueFrom:
                 configMapKeyRef:
-                  name: core-config
+                  name: env-config
                   key: STUB_PAYMENT
             - name: ADMIN_TELEGRAM_IDS
               valueFrom:
                 configMapKeyRef:
-                  name: core-config
+                  name: env-config
                   key: ADMIN_TELEGRAM_IDS
             - name: WEBAPP_PORT
               value: "18088"
             - name: MINI_APP_DOMAIN
               valueFrom:
                 configMapKeyRef:
-                  name: core-config
+                  name: env-config
                   key: MINI_APP_DOMAIN
             - name: MINI_APP_URL
               value: https://$(MINI_APP_DOMAIN)

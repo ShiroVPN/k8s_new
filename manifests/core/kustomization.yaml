@@ -1,9 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - config/core.yaml
-  - config/main-api.yaml
-  - config/caddy.yaml
+  - ../../configs
   # deps: open-source services we only run
   - deps/postgres/pvc.yaml
   - deps/postgres/deployment.yaml
