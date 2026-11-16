@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudbeaver-data-sources
+data:
+  data-sources.json: |
+    {
+      "folders": {},
+      "connections": {
+        "postgres-jdbc-shiro": {
+          "provider": "postgresql",
+          "driver": "postgres-jdbc",
+          "name": "shiro",
+          "save-password": true,
+          "configuration": {
+            "host": "postgres",
+            "port": "5432",
+            "database": "shiro",
+            "configurationType": "MANUAL",
+            "auth-model": "native",
+            "auth-properties": {
+              "userName": "shiro",
+              "userPassword": "__POSTGRES_PASSWORD__"
+            }
+          }
+        }
+      }
+    }

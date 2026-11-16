@@ -16,6 +16,31 @@ spec:
       labels:
         app: cloudbeaver
     spec:
+      initContainers:
+        - name: data-sources
+          image: dbeaver/cloudbeaver:26.2.4
+          command:
+            - sh
+            - -c
+            - |
+              target=/opt/cloudbeaver/workspace/GlobalConfiguration/.dbeaver/data-sources.json
+              if [ -f "$target" ]; then
+                exit 0
+              fi
+              mkdir -p "${target%/*}"
+              escaped=$(printf '%s' "$POSTGRES_PASSWORD" | sed -e 's/[\\|&]/\\&/g')
+              sed -e "s|__POSTGRES_PASSWORD__|$escaped|g" /config/data-sources.json > "$target"
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /opt/cloudbeaver/workspace
+            - name: sources
+              mountPath: /config
       containers:
         - name: cloudbeaver
           image: dbeaver/cloudbeaver:26.2.4
@@ -47,3 +72,6 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: cloudbeaver-data
+        - name: sources
+          configMap:
+            name: cloudbeaver-data-sources
