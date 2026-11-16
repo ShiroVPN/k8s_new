@@ -58,7 +58,7 @@ spec:
           command:
             - sh
             - -c
-            - python /scripts/provision.py && exec tail -f /dev/null
+            - python -u /scripts/provision.py && exec tail -f /dev/null
           env:
             - name: CLOUDBEAVER_URL
               value: http://cloudbeaver:8978

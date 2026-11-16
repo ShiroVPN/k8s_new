@@ -49,6 +49,8 @@ data:
                 answer = {"errors": [str(error)]}
             if not answer.get("errors"):
                 return
+            if attempt == 0:
+                print(f"waiting for login: {answer['errors']}", flush=True)
             if attempt == ATTEMPTS - 1:
                 sys.exit(f"cannot log in: {answer['errors']}")
             time.sleep(DELAY)
@@ -68,7 +70,7 @@ data:
 
     connections = call(opener, LIST)["userConnections"]
     if any(item["name"] == CONNECTION for item in connections):
-        print(f"connection {CONNECTION} already exists")
+        print(f"connection {CONNECTION} already exists", flush=True)
         sys.exit(0)
 
     call(
@@ -91,4 +93,4 @@ data:
             }
         },
     )
-    print(f"connection {CONNECTION} created")
+    print(f"connection {CONNECTION} created", flush=True)
