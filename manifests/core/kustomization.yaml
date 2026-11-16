@@ -17,7 +17,7 @@ resources:
   - aux/caddy/pvc.yaml
   - aux/caddy/deployment.yaml
   - aux/cloudbeaver/pvc.yaml
-  - aux/cloudbeaver/data-sources.yaml
+  - aux/cloudbeaver/provided-connections.yaml
   - aux/cloudbeaver/initial-data.yaml
   - aux/cloudbeaver/deployment.yaml
   - aux/cloudbeaver/service.yaml

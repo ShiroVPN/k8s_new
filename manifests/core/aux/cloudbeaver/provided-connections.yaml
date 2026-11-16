@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: cloudbeaver-data-sources
+  name: cloudbeaver-provided-connections
 data:
-  data-sources.json: |
+  provided-connections.json: |
     {
       "folders": {},
       "connections": {

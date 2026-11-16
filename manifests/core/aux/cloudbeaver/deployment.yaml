@@ -17,19 +17,19 @@ spec:
         app: cloudbeaver
     spec:
       initContainers:
-        - name: data-sources
+        - name: provided-connections
           image: dbeaver/cloudbeaver:26.2.4
           command:
             - sh
             - -c
             - |
-              target=/opt/cloudbeaver/workspace/GlobalConfiguration/.dbeaver/data-sources.json
+              target=/opt/cloudbeaver/workspace/GlobalConfiguration/.dbeaver/provided-connections.json
               if [ -f "$target" ]; then
                 exit 0
               fi
               mkdir -p "${target%/*}"
               escaped=$(printf '%s' "$POSTGRES_PASSWORD" | sed -e 's/[\\|&]/\\&/g')
-              sed -e "s|__POSTGRES_PASSWORD__|$escaped|g" /config/data-sources.json > "$target"
+              sed -e "s|__POSTGRES_PASSWORD__|$escaped|g" /config/provided-connections.json > "$target"
           env:
             - name: POSTGRES_PASSWORD
               valueFrom:
@@ -78,7 +78,7 @@ spec:
             claimName: cloudbeaver-data
         - name: sources
           configMap:
-            name: cloudbeaver-data-sources
+            name: cloudbeaver-provided-connections
         - name: initial
           configMap:
             name: cloudbeaver-initial-data
