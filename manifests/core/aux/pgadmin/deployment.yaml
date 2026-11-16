@@ -23,7 +23,7 @@ spec:
             - containerPort: 80
           env:
             - name: PGADMIN_DEFAULT_EMAIL
-              value: admin@shiro.local
+              value: admin@example.com
             - name: PGADMIN_DEFAULT_PASSWORD
               valueFrom:
                 secretKeyRef:
