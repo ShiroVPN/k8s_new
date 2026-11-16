@@ -1,0 +1,251 @@
+main_api_wait_result_timeout: 30
+
+images_path: assets
+
+topup:
+  min_amount: 10
+  max_amount: 100000
+
+webapp:
+  host: 0.0.0.0
+
+links:
+  support: https://t.me/ShiroVPNsupp_bot
+  privacy: https://telegra.ph/POLITIKA-KONFIDENCIALNOSTI-PO-RABOTE-S-PERSONALNYMI-DANNYMI-POLZOVATELEJ-09-29-2
+  agreement: https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19
+
+texts:
+  no_account: |-
+    <b>Добро пожаловать в Shiro VPN</b> 🏯
+
+    Быстрый VPN прямо из Telegram:
+    ⚡️ без ограничений скорости и трафика
+    🛡 протокол AmneziaWG — устойчив к блокировкам
+    📱 iPhone, Android, Windows и Mac
+    🎁 бесплатный пробный период
+
+    Создайте аккаунт — это займёт секунду.
+  account_created: |-
+    ✅ <b>Аккаунт создан!</b>
+
+    Вам доступен <b>бесплатный пробный период</b> 🎁
+    Нажмите кнопку ниже — пришлём QR-код и короткую инструкцию, подключение займёт пару минут.
+  about: |-
+    ℹ️ <b>О сервисе</b>
+
+    Shiro — VPN по подписке: подключение за пару минут, без ограничений скорости и трафика.
+
+    <blockquote>💳 Оплата с баланса — пополняете и выбираете тариф.
+    ⏳ При продлении оставшиеся дни не сгорают.
+    💬 Поддержка отвечает прямо в Telegram.</blockquote>
+  api_error: |-
+    ⚠️ <b>Что-то пошло не так</b>
+
+    Ошибка на нашей стороне. Попробуйте ещё раз через минуту или напишите в поддержку — поможем.
+  operation_in_progress: "⏳ Предыдущая операция ещё выполняется. Попробуйте через минуту."
+  unknown_message: "🤔 Не понял команду. Пользуйтесь кнопками или отправьте /start."
+  ask_amount: |-
+    💳 <b>Пополнение баланса</b>
+
+    Выберите сумму ниже или отправьте свою сообщением — целое число в рублях.
+  ask_amount_error_tail: "\n\n⚠️ Нужно целое число от {minimum} до {maximum} — без пробелов, запятых и знаков."
+  payment_stub: |-
+    🚧 <b>Оплата временно недоступна</b>
+
+    Мы уже подключаем платёжную систему. Загляните чуть позже.
+
+  referral_welcome: "Друг подарил вам {trial} VPN бесплатно 🎁\n\n{no_account}"
+  invite: |-
+    🎁 Пригласите друга
+
+    • Друг получит {trial} VPN бесплатно.
+    • Вы получите {bonus} ₽ на баланс, когда друг впервые оплатит подписку на месяц.
+    • Бонус нельзя вывести, только потратить на подписку.
+
+    Ваша ссылка:
+    {link}
+
+    Пришли по вашей ссылке: {invited}
+    Оплатили подписку: {paid}
+  invite_share: "Попробуй Shiro VPN — по моей ссылке {trial} бесплатно"
+  invite_hint: "🎁 Пригласите друга — получите {bonus} ₽ на баланс."
+  referral_bonus: |-
+    Ваш друг оплатил подписку на месяц — вам начислено {bonus} ₽ 🎉
+    Баланс: {balance} руб
+
+  confirm_topup: |-
+    🧾 <b>Пополнение на {amount}</b>
+
+    <blockquote>💰 Баланс сейчас: {balance}
+    ✨ После оплаты: <b>{after}</b></blockquote>
+
+    Нажмите «Оплатить» — деньги зачислятся автоматически, а мы пришлём чек.
+  chargeback_client: |-
+    ⚠️ <b>Платёж оспорен</b>
+
+    Банк сообщил, что вы оспорили платёж на {amount} руб от {date}.
+    Если это ошибка, напишите в поддержку.
+  chargeback_admin: |-
+    🚨 <b>Чарджбэк: {amount} руб</b> от {date}
+    Клиент: {who}
+    Транзакция Platega: <code>{platega_id}</code>
+    Баланс и подписка не менялись, решение за вами.
+  topup_ok_title: "✅ <b>Баланс пополнен!</b>"
+  topup_ok_amount: "💰 Сумма: <b>{amount}</b>"
+  topup_ok_balance: "💼 Баланс: <b>{balance}</b>"
+  topup_ok_method: "🏦 Способ: {method}"
+  topup_ok_transaction: "🆔 Транзакция: <code>{id}</code>"
+  payment_methods:
+    SBPQR: СБП (QR)
+
+  howto: |-
+    📲 <b>Подключение за 2 шага</b>
+    🟢 VPN оплачен {paid_until}
+
+    <b>1. Установите AmneziaVPN</b>
+    Кнопка ниже или <a href="{amnezia_url}">amnezia.org</a> — есть для iPhone, Android, Windows и Mac.
+
+    <b>2. Добавьте подключение</b>
+    Отсканируйте QR-код выше в приложении. Неудобно сканировать — откройте через AmneziaVPN файл из сообщения выше.
+
+    Готово! Нажмите «Подключиться» в приложении 🚀
+  howto_xui: |-
+    📲 <b>Подключение по ссылке-подписке</b>
+    🟢 VPN оплачен {paid_until}
+
+    <b>1. Установите приложение с подписками</b>
+    Подойдёт Happ, v2rayNG или Streisand — есть для iPhone, Android, Windows и Mac.
+
+    <b>2. Добавьте подписку</b>
+    Отсканируйте QR-код выше или вставьте ссылку из сообщения выше в приложении.
+
+    <b>3. Включите подключение</b>
+    Приложение само загрузит доступные серверы по ссылке.
+
+    Готово! Нажмите «Подключиться» в приложении 🚀
+  config_caption: "📄 <b>Конфиг для импорта в AmneziaVPN</b>"
+  xui_config_caption: "🔗 <b>Ваша ссылка-подписка</b>"
+  xui_config: "{caption}\n<code>{sub_url}</code>"
+  howto_no_peer: |-
+    ⏳ <b>Подключение ещё готовится</b>
+
+    Подписка есть, но конфиг для неё пока не создан.
+    Напишите в поддержку — разберёмся.
+  howto_no_subscription: |-
+    🔌 <b>Подключаться пока не к чему</b>
+
+    У вас нет активной подписки. Выберите тариф — и через пару минут VPN заработает.
+
+  subscription_block: "🔹 <b>{name}</b> — <b>{cost}</b>\n<blockquote>📅 {days}  ·  📱 {peers}</blockquote>"
+  option_button: "{name} · {cost}"
+  games_intro: |-
+    🎮 <b>Игры с бонусами</b>
+
+    Мини-игры прямо в чате: играйте и получайте бонусы к VPN.
+
+    <blockquote>{games}</blockquote>
+
+    🎁 — первый рубеж. Приз у него общий на все игры и идёт по очереди: {firsts}.
+
+    📅 <b>Дни</b> добавляются к вашей подписке, 🏷 <b>скидка</b> снижает цену следующего тарифа (скидки не складываются — действует наибольшая). Каждую награду можно получить один раз.
+
+    ◀ ▶ под игрой — листать игры, 🏆 — таблица рекордов.
+
+    <i>Бета: игры работают в свежих версиях Telegram.</i>
+  game_discount: "🎮 <b>Скидка {percent}% из игры</b> — уже в ценах.\n\n"
+  select_sub: "🛒 <b>Выберите тариф</b>\n\n{discount}{blocks}\n\n<i>Оплата с баланса. Если подписка ещё действует, оставшиеся дни сохранятся.</i>"
+  not_enough: "💸 <b>На балансе не хватает {shortfall}</b>\n\nПополните баланс — после оплаты сможете сразу вернуться к выбранному тарифу."
+  not_enough_bonus: "\n\n🎁 Пригласите друга — получите {bonus}."
+  confirm_sub: "🧾 <b>Подтверждение покупки</b>\n\n{discount}{block}\n\n{term}\n\n💰 Баланс: {balance} → <b>{after}</b>"
+  confirm_sub_term_new: "📅 После покупки VPN будет оплачен до <b>{until}</b>."
+  confirm_sub_term_current: "⏳ Сейчас VPN оплачен до {now_until}.\n📅 После покупки — до <b>{until}</b>: к оставшемуся сроку добавится {days}."
+  sub_added: |-
+    🎉 <b>Подписка оформлена!</b>
+
+    VPN оплачен {paid_until}.
+    Нажмите «Подключиться» — пришлём QR-код и инструкцию.
+
+  main_menu_title: "🏯 <b>Shiro VPN</b>"
+  main_menu_no_sub: "⚪️ <b>Подписки нет</b>\nВыберите тариф — подключение займёт пару минут."
+  main_menu_active: "🟢 <b>Подписка активна</b>"
+  main_menu_expiring: "🟡 <b>Подписка скоро закончится</b>"
+  main_menu_subscription: "<blockquote>📦 Тариф: {name} · {peers}\n⏳ Оплачен {paid_until}</blockquote>"
+  main_menu_balance: "💰 Баланс: <b>{balance}</b>"
+
+  subscription_renewed: |-
+    🔄 <b>Подписка продлена</b>
+
+    Тариф {name} продлён до {date}.
+    💰 Баланс: {balance}
+  subscription_expiring: "⏰ <b>Подписка скоро закончится</b>\n\nТариф {name} закончится через {days} ({date}).\n💰 Баланс: {balance}\n\n{tail}"
+  subscription_expiring_renews: "Она продлится автоматически, с баланса спишется стоимость тарифа."
+  subscription_expiring_plain: "Чтобы VPN продолжил работать, выберите тариф в главном меню."
+  subscription_disabled: |-
+    🔴 <b>Подписка отключена</b>
+
+    Срок тарифа {name} истёк.
+    💰 Баланс: {balance}
+
+    Чтобы снова подключиться, выберите тариф в главном меню.
+
+  beta_usage: |-
+    /beta — список бета-тестеров
+    /beta add @username — открыть закрытые фичи
+    /beta remove @username — закрыть обратно
+  announce_usage: |-
+    /announce all текст — всем клиентам
+    /announce active текст — с действующей подпиской (пробная тоже)
+    /announce beta текст — бета-тестерам
+
+    Текст уходит как есть, с форматированием и переносами строк.
+  announce_started: "📣 Рассылаю {audience}: {total}…"
+  announce_done: "📣 Рассылаю {audience}: {sent} из {total}."
+  announce_done_missing: "\nНе дошло: {missing} (заблокировали бота или удалили аккаунт)."
+  announce_audience:
+    all: всем клиентам
+    active: клиентам с действующей подпиской
+    beta: бета-тестерам
+  beta_testers: "🧪 Бета-тестеры:\n{lines}"
+  beta_testers_empty: "Бета-тестеров нет.\n\n{usage}"
+  beta_not_found: "Не нашёл одного клиента с @{username}. Пусть он откроет бота и нажмёт /start, потом повторите."
+  beta_set: "@{username} ({telegram_id}) {state}."
+  beta_set_added: "теперь бета-тестер"
+  beta_set_removed: "больше не бета-тестер"
+
+  stats: "📊 <b>Статистика</b>\n\n👥 Пользователей: <b>{clients}</b>\n🎁 Активный триал: <b>{trial}</b>\n💳 Платящих (активная подписка): <b>{paying}</b>"
+  stats_usage_title: "\n\n📡 <b>Использование VPN</b>\n<i>Только включённые пиры, с последнего перезапуска ноды. Кто истёк, тот здесь не виден.</i>"
+  stats_enabled: "🔌 Включённых пиров: <b>{peers}</b>"
+  stats_connected: "🤝 Подключались: <b>{connected}</b> (за сутки {day}, за неделю {week})"
+  stats_tx: "⬇️ Отдано клиентам: <b>{tx}</b>"
+  stats_rx: "⬆️ Получено от клиентов: <b>{rx}</b>"
+  stats_top_title: "\n🏆 <b>Больше всего трафика</b>"
+  stats_top_line: "{index}. {user} — {traffic}, {ago}"
+  stats_low_title: "\n🔇 <b>Был handshake, трафика почти нет (меньше 1 МБ): {count}</b>"
+  stats_low_line: "• {user} — {traffic}, {ago}"
+  stats_low_more: "…и ещё {hidden}"
+  stats_hubs: "\n⚠️ Нод без ответа: <b>{count}</b>"
+
+buttons:
+  continue_purchase: "↩️ Вернуться к тарифу"
+  create_account: "🚀 Создать аккаунт"
+  connect_free: "🎁 Попробовать бесплатно"
+  support: "💬 Поддержка"
+  about: "ℹ️ О сервисе"
+  main_menu: "🏠 Главное меню"
+  topup: "💳 Пополнить"
+  howto: "📲 Как подключиться"
+  select_sub: "🛒 Тарифы"
+  cancel: "✖️ Отмена"
+  back: "◀️ Назад"
+  pay: "💳 Оплатить"
+  change_amount: "✏️ Другая сумма"
+  connect: "📲 Подключиться"
+  buy: "✅ Купить за {cost}"
+  download_app: "⬇️ Скачать AmneziaVPN"
+  open_app: "📱 Открыть приложение"
+  privacy_policy: "🔒 Политика конфиденциальности"
+  user_agreement: "📄 Пользовательское соглашение"
+  invite: "🎁 Пригласить друга"
+  share: "Поделиться"
+  widget: "🎮 Игры с бонусами"
+  games_play: "▶️ Играть"
