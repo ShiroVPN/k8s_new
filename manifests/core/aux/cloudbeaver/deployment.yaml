@@ -56,9 +56,13 @@ spec:
                   key: CB_ADMIN_PASSWORD
             - name: CB_SERVER_NAME
               value: shiro
+            - name: CLOUDBEAVER_DB_INITIAL_DATA
+              value: /initial-data/initial-data.conf
           volumeMounts:
             - name: data
               mountPath: /opt/cloudbeaver/workspace
+            - name: initial
+              mountPath: /initial-data
           readinessProbe:
             tcpSocket:
               port: 8978
@@ -75,3 +79,6 @@ spec:
         - name: sources
           configMap:
             name: cloudbeaver-data-sources
+        - name: initial
+          configMap:
+            name: cloudbeaver-initial-data

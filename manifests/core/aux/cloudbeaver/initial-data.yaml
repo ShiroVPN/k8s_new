@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudbeaver-initial-data
+data:
+  initial-data.conf: |
+    {
+      "teams": [
+        {
+          "subjectId": "user",
+          "teamName": "User",
+          "description": "All users, including anonymous.",
+          "permissions": []
+        }
+      ]
+    }
