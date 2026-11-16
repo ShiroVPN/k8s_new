@@ -18,7 +18,7 @@ spec:
         - name: ghcr
       containers:
         - name: peerhub-heartbeat
-          image: ghcr.io/shirovpn/peerhub_heartbeat:v0.2.0
+          image: ghcr.io/shirovpn/peerhub_heartbeat:unset
           env:
             - name: BROKER_URL
               valueFrom:

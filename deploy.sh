@@ -65,9 +65,8 @@ Argo CD panel:
   password: ${password:-<argocd-initial-admin-secret not found>}
 
 applications:
-  ./deploy.sh run --profile core
-  ./deploy.sh run --profile peerhub-wg
-  ./deploy.sh run --profile observability
+  ./deploy.sh run --env prod
+  ./deploy.sh run --env dev
 
 panels:
   ./deploy.sh forward          # all of them on 127.0.0.1:18081-18088
@@ -150,14 +149,22 @@ label() {
 }
 
 run() {
-  profile=$1
-  peerhub_configure "$profile"
+  env=$1
+  set_file="argocd/applicationset-$env.yaml"
+  if [ ! -f "$set_file" ]; then
+    echo "no such environment: $env"
+    echo "usage: $0 run --env dev|prod"
+    exit 1
+  fi
+  for dir in overlays/peerhub-*; do
+    [ -d "$dir" ] || continue
+    peerhub_configure "$(basename "$dir")"
+  done
   branch=$(git branch --show-current 2>/dev/null || echo "detached")
-  revision=$(sed -n 's/^ *targetRevision: *//p' "argocd/$profile.yaml")
-  echo "applying argocd/$profile.yaml from branch '$branch' (targetRevision: $revision)"
-  k apply -f "argocd/$profile.yaml"
-  k -n argocd get application "$profile"
-  echo "sync it by hand in the Argo CD panel: $profile"
+  revision=$(sed -n 's/^ *targetRevision: *//p' "$set_file")
+  echo "applying $set_file from branch '$branch' (targetRevision: $revision, env $env)"
+  k apply -f "$set_file"
+  k -n argocd get applications
 }
 
 forward_targets() {
@@ -360,7 +367,24 @@ case "${1:-}" in
 init_cluster) init_cluster ;;
 join_cluster) join_cluster "${3:?usage: $0 join_cluster --profile <name>}" ;;
 label) label "${3:?usage: $0 label --profile <name>}" ;;
-run) run "${3:?usage: $0 run --profile <name>}" ;;
+run)
+  shift
+  env=""
+  while [ $# -gt 0 ]; do
+    case $1 in
+    --env) env=${2:?--env needs dev or prod}; shift 2 ;;
+    *)
+      echo "unknown argument: $1"
+      exit 1
+      ;;
+    esac
+  done
+  if [ -z "$env" ]; then
+    echo "usage: $0 run --env dev|prod"
+    exit 1
+  fi
+  run "$env"
+  ;;
 cache_images) cache_images ;;
 save_images) save_images ;;
 load_images) load_images ;;
@@ -379,7 +403,9 @@ usage: $0 <command>
   init_cluster                       install k3s, Argo CD and KSOPS
   join_cluster --profile <name>      join an existing cluster
   label --profile <name>             mark this node for a profile
-  run --profile <name>               create the Argo CD Application
+  run --env <dev|prod>               create the Applications for this
+                                     environment from
+                                     argocd/applicationset-<env>.yaml
   cache_images                       pull third-party images into containerd
   save_images                        export every image to $IMAGE_CACHE
   load_images                        import them back after a reinstall

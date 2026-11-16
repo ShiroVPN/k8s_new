@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: shiro-dev
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - list:
+        elements:
+          - profile: core
+            namespace: shiro
+          - profile: peerhub-wg
+            namespace: shiro-peerhub-wg
+          - profile: observability
+            namespace: observability
+  template:
+    metadata:
+      name: '{{.profile}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/ShiroVPN/k8s_new.git
+        targetRevision: main
+        path: 'overlays/{{.profile}}'
+        kustomize:
+          components:
+            - ../../components/dev
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{.namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

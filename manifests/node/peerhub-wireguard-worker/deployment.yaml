@@ -20,7 +20,7 @@ spec:
         - name: ghcr
       containers:
         - name: peerhub-wireguard-worker
-          image: ghcr.io/shirovpn/peerhub_wireguard_worker:0.0.11
+          image: ghcr.io/shirovpn/peerhub_wireguard_worker:unset
           env:
             - name: BROKER_URL
               valueFrom:
