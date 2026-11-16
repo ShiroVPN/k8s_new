@@ -46,11 +46,6 @@ data:
             reverse_proxy rabbitmq.shiro.svc.cluster.local:15672
     }
 
-    cloudbeaver.{$ADMIN_DOMAIN} {
-            tls internal
-            reverse_proxy cloudbeaver.shiro.svc.cluster.local:8978
-    }
-
     wg-easy.{$ADMIN_DOMAIN} {
             tls internal
             reverse_proxy wg-easy.shiro-peerhub-wg.svc.cluster.local:51821

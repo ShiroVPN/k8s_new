@@ -70,7 +70,7 @@ applications:
   ./deploy.sh run --profile observability
 
 panels:
-  ./deploy.sh forward          # all of them on 127.0.0.1:18081-18087
+  ./deploy.sh forward          # all of them on 127.0.0.1:18081-18088
   ./deploy.sh forward stop
 
 new VPN node:
@@ -168,9 +168,9 @@ jaeger observability svc/jaeger 16686 18082 no
 prometheus observability svc/prometheus 9090 18083 no
 elasticsearch observability svc/elasticsearch 9200 18084 no
 rabbitmq shiro svc/rabbitmq 15672 18085 yes
-cloudbeaver shiro svc/cloudbeaver 8978 18086 yes
-dbgate shiro svc/dbgate 3000 18088 yes
+pgadmin shiro svc/pgadmin 80 18086 yes
 wg-easy shiro-peerhub-wg deploy/wg-easy 51821 18087 yes
+dbgate shiro svc/dbgate 3000 18088 yes
 EOF
 }
 
