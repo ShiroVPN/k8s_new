@@ -35,6 +35,8 @@ spec:
               value: "true"
             - name: CLOUDBEAVER_APP_ANONYMOUS_ACCESS_ENABLED
               value: "false"
+            - name: CLOUDBEAVER_BRUTE_FORCE_PROTECTION_ENABLED
+              value: "false"
             - name: CLOUDBEAVER_DB_INITIAL_DATA
               value: /initial-data/initial-data.conf
           volumeMounts:
