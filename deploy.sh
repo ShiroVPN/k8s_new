@@ -169,6 +169,7 @@ prometheus observability svc/prometheus 9090 18083 no
 elasticsearch observability svc/elasticsearch 9200 18084 no
 rabbitmq shiro svc/rabbitmq 15672 18085 yes
 cloudbeaver shiro svc/cloudbeaver 8978 18086 yes
+dbgate shiro svc/dbgate 3000 18088 yes
 wg-easy shiro-peerhub-wg deploy/wg-easy 51821 18087 yes
 EOF
 }

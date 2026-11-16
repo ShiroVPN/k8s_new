@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dbgate
+  labels:
+    app: dbgate
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: dbgate
+  template:
+    metadata:
+      labels:
+        app: dbgate
+    spec:
+      containers:
+        - name: dbgate
+          image: dbgate/dbgate:7.3.6
+          ports:
+            - containerPort: 3000
+          env:
+            - name: LOGIN
+              value: admin
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: DBGATE_PASSWORD
+            - name: CONNECTIONS
+              value: postgres
+            - name: LABEL_postgres
+              value: shiro
+            - name: ENGINE_postgres
+              value: postgres@dbgate-plugin-postgres
+            - name: SERVER_postgres
+              value: postgres
+            - name: PORT_postgres
+              value: "5432"
+            - name: DATABASE_postgres
+              value: shiro
+            - name: USER_postgres
+              value: shiro
+            - name: PASSWORD_postgres
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi

@@ -21,6 +21,8 @@ resources:
   - aux/cloudbeaver/provision-script.yaml
   - aux/cloudbeaver/deployment.yaml
   - aux/cloudbeaver/service.yaml
+  - aux/dbgate/deployment.yaml
+  - aux/dbgate/service.yaml
   # apps: our own code
   - apps/main-api-worker/deployment.yaml
   - apps/main-api-scheduler/deployment.yaml
