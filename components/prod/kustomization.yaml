@@ -4,10 +4,12 @@ resources:
   - ../../configs/prod
 images:
   - name: ghcr.io/shirovpn/main_api_worker
-    newTag: "0.1.0-dev"
+    newTag: "0.2.1-dev"
   - name: ghcr.io/shirovpn/botv2
-    newTag: "0.1.21"
+    newTag: "2.0.2-dev"
   - name: ghcr.io/shirovpn/peerhub_wireguard_worker
     newTag: "0.0.11"
+  - name: ghcr.io/shirovpn/peerhub_3xui_worker
+    newTag: "0.1.0"
   - name: ghcr.io/shirovpn/peerhub_heartbeat
-    newTag: "v0.2.0"
+    newTag: "v0.3.0"

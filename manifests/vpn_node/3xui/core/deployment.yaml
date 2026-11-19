@@ -1,0 +1,182 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xui
+  labels:
+    app: xui
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: xui
+  template:
+    metadata:
+      labels:
+        app: xui
+    spec:
+      initContainers:
+        - name: configure
+          image: ghcr.io/mhsanaei/3x-ui:v3.11.0
+          command:
+            - /app/x-ui
+            - setting
+            - -username
+            - $(XUI_ADMIN_USERNAME)
+            - -password
+            - $(XUI_ADMIN_PASSWORD)
+            - -webBasePath
+            - $(XUI_WEB_BASE_PATH)
+          env:
+            - name: XUI_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_ADMIN_USERNAME
+            - name: XUI_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_ADMIN_PASSWORD
+            - name: XUI_WEB_BASE_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: XUI_WEB_BASE_PATH
+          volumeMounts:
+            - name: data
+              mountPath: /etc/x-ui
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+        - name: token
+          image: python:3.14-alpine
+          command:
+            - python3
+            - /bootstrap/token.py
+          env:
+            - name: XUI_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_TOKEN
+          volumeMounts:
+            - name: data
+              mountPath: /etc/x-ui
+            - name: bootstrap
+              mountPath: /bootstrap
+              readOnly: true
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+      containers:
+        - name: xui
+          image: ghcr.io/mhsanaei/3x-ui:v3.11.0
+          ports:
+            - name: panel
+              containerPort: 2053
+            - name: subscription
+              containerPort: 2096
+              hostPort: 2096
+              protocol: TCP
+            - name: inbound-awg
+              containerPort: 51830
+              hostPort: 51830
+              protocol: UDP
+            - name: inbound-vless
+              containerPort: 22531
+              hostPort: 22531
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /etc/x-ui
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+        - name: provision
+          image: python:3.14-alpine
+          command:
+            - python3
+            - /bootstrap/provision.py
+          env:
+            - name: XUI_WEB_BASE_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: XUI_WEB_BASE_PATH
+            - name: XUI_SUB_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: XUI_SUB_PATH
+            - name: XUI_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_TOKEN
+            - name: XUI_REALITY_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_REALITY_PRIVATE_KEY
+            - name: XUI_REALITY_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_REALITY_PUBLIC_KEY
+            - name: XUI_REALITY_SHORT_IDS
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_REALITY_SHORT_IDS
+            - name: XUI_REALITY_TARGET
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: XUI_REALITY_TARGET
+            - name: XUI_REALITY_SERVER_NAMES
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: XUI_REALITY_SERVER_NAMES
+            - name: XUI_AWG_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_AWG_PRIVATE_KEY
+            - name: XUI_AWG_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_AWG_PUBLIC_KEY
+            - name: XUI_AWG_HEADER_PROTECTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_AWG_HEADER_PROTECTION_KEY
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /bootstrap/provision.py
+              subPath: provision.py
+              readOnly: true
+            - name: inbounds
+              mountPath: /bootstrap/inbounds
+              readOnly: true
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: xui-data
+        - name: bootstrap
+          configMap:
+            name: xui-bootstrap
+        - name: inbounds
+          configMap:
+            name: xui-inbounds

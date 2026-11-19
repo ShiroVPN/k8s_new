@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: xui
+  labels:
+    app: xui
+spec:
+  selector:
+    app: xui
+  ports:
+    - name: panel
+      port: 2053
+      targetPort: panel
+    - name: subscription
+      port: 2096
+      targetPort: subscription

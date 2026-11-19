@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 3xui/core/pvc.yaml
+  - 3xui/core/service.yaml
+  - 3xui/core/deployment.yaml
+  - 3xui/worker/deployment.yaml
+  - 3xui/heartbeat/deployment.yaml
+  - wireguard/core/pvc.yaml
+  - wireguard/core/deployment.yaml
+  - wireguard/core/service.yaml
+  - wireguard/worker/pvc.yaml
+  - wireguard/worker/deployment.yaml
+  - wireguard/heartbeat/deployment.yaml
+configMapGenerator:
+  - name: xui-bootstrap
+    files:
+      - provision.py=3xui/core/bootstrap/provision.py
+      - token.py=3xui/core/bootstrap/token.py
+  - name: xui-inbounds
+    files:
+      - 3xui/core/inbounds/AmneziaWG.json
+      - 3xui/core/inbounds/vless_reality.json

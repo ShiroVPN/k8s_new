@@ -74,7 +74,7 @@ panels:
 
 new VPN node:
   git clone git@github.com:ShiroVPN/k8s_new.git
-  K3S_URL=https://$ip:6443 K3S_TOKEN=$token ./deploy.sh join_cluster --profile peerhub-wg
+  K3S_URL=https://$ip:6443 K3S_TOKEN=$token ./deploy.sh join_cluster --profile vpn-node
   ports 6443 to the core, 8472/udp and 10250/tcp both ways - see README
 EOF
 }
@@ -105,7 +105,7 @@ join_cluster() {
 peerhub_configure() {
   profile=$1
   case $profile in
-  peerhub-*) ;;
+  vpn-*) ;;
   *) return 0 ;;
   esac
 
@@ -122,6 +122,30 @@ peerhub_configure() {
     wg_host=${wg_host:-0.0.0.0}
     read -r -p "WG_PORT [51820]: " wg_port
     wg_port=${wg_port:-51820}
+    read -r -p "CONNECTION_TYPE [xui]: " connection_type
+    connection_type=${connection_type:-xui}
+
+    default_panel_path="/$(cat /proc/sys/kernel/random/uuid 2>/dev/null | cut -c1-8)"
+    read -r -p "XUI_WEB_BASE_PATH [$default_panel_path]: " web_base_path
+    web_base_path=${web_base_path:-$default_panel_path}
+    default_sub_path="/$(cat /proc/sys/kernel/random/uuid 2>/dev/null | cut -c1-8)"
+    read -r -p "XUI_SUB_PATH [$default_sub_path]: " sub_path
+    sub_path=${sub_path:-$default_sub_path}
+    read -r -p "XUI_SUBSCRIPTION_HOST (node host or IP, no scheme): " subscription_host
+    : "${subscription_host:?XUI_SUBSCRIPTION_HOST is empty}"
+    read -r -p "XUI_INBOUND_IDS (empty = every inbound): " inbound_ids
+    read -r -p "XUI_VERIFY [true]: " xui_verify
+    xui_verify=${xui_verify:-true}
+    read -r -p "XUI_REALITY_TARGET (host:443): " reality_target
+    : "${reality_target:?XUI_REALITY_TARGET is empty}"
+    default_server_names=${reality_target%:*}
+    read -r -p "XUI_REALITY_SERVER_NAMES [$default_server_names]: " server_names
+    server_names=${server_names:-$default_server_names}
+
+    web_base_path="/${web_base_path#/}"
+    web_base_path="${web_base_path%/}"
+    sub_path="/${sub_path#/}"
+    sub_path="${sub_path%/}"
 
     cat > "$file" <<EOF
 apiVersion: v1
@@ -132,10 +156,24 @@ data:
   PEERHUB_ID: "$peerhub_id"
   COUNTRY: "$country"
   SERVER_NAME: "$server_name"
+  CONNECTION_TYPE: "$connection_type"
   WG_HOST: "$wg_host"
   WG_PORT: "$wg_port"
+  XUI_WEB_BASE_PATH: "$web_base_path"
+  XUI_SUB_PATH: "$sub_path"
+  XUI_URL: "http://xui:2053$web_base_path"
+  XUI_SUBSCRIPTION_BASE_URL: "http://$subscription_host:2096$sub_path"
+  XUI_INBOUND_IDS: "$inbound_ids"
+  XUI_VERIFY: "$xui_verify"
+  XUI_REALITY_TARGET: "$reality_target"
+  XUI_REALITY_SERVER_NAMES: "$server_names"
 EOF
     echo "wrote $file"
+  fi
+
+  if ! grep -q '^  CONNECTION_TYPE:' "$file"; then
+    echo "$file predates the 3xui keys; delete it and run again"
+    exit 1
   fi
 
   namespace="shiro-$profile"
@@ -156,7 +194,7 @@ run() {
     echo "usage: $0 run --env dev|prod"
     exit 1
   fi
-  for dir in overlays/peerhub-*; do
+  for dir in overlays/vpn-*; do
     [ -d "$dir" ] || continue
     peerhub_configure "$(basename "$dir")"
   done
@@ -176,7 +214,8 @@ prometheus observability svc/prometheus 9090 18083 no
 elasticsearch observability svc/elasticsearch 9200 18084 no
 rabbitmq shiro svc/rabbitmq 15672 18085 yes
 pgadmin shiro svc/pgadmin 80 18086 yes
-wg-easy shiro-peerhub-wg deploy/wg-easy 51821 18087 yes
+wg-easy shiro-vpn-node deploy/wg-easy 51821 18087 yes
+xui shiro-vpn-node svc/xui 2053 18089 yes
 dbgate shiro svc/dbgate 3000 18088 yes
 EOF
 }
@@ -308,7 +347,7 @@ full_image() {
 
 cache_images() {
   images=$(
-    for dir in manifests/core manifests/node manifests/observability; do
+    for dir in manifests/core manifests/vpn_node manifests/observability; do
       kubectl kustomize "$dir"
     done | sed -n 's/^ *image: *//p' | grep -v '^ghcr.io/shirovpn/' | sort -u
   )

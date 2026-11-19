@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+configMapGenerator:
+  - name: bot-config
+    files:
+      - config.yaml=bot_config.yaml
+generatorOptions:
+  disableNameSuffixHash: true

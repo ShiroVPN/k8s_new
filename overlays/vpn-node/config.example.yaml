@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peerhub-config
+data:
+  PEERHUB_ID: "<uuid>"
+  COUNTRY: "<country>"
+  SERVER_NAME: "<server-name>"
+  CONNECTION_TYPE: "xui"
+  WG_HOST: "<wg-host>"
+  WG_PORT: "51820"
+  XUI_WEB_BASE_PATH: "/<panel-path>"
+  XUI_SUB_PATH: "/<sub-path>"
+  XUI_URL: "http://xui:2053/<panel-path>"
+  XUI_SUBSCRIPTION_BASE_URL: "http://<node-host>:2096/<sub-path>"
+  XUI_INBOUND_IDS: ""
+  XUI_VERIFY: "true"
+  XUI_REALITY_TARGET: "<camouflage-host:443>"
+  XUI_REALITY_SERVER_NAMES: "<camouflage-host>"

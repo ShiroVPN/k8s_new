@@ -10,8 +10,12 @@ spec:
         elements:
           - profile: core
             namespace: shiro
-          - profile: peerhub-wg
-            namespace: shiro-peerhub-wg
+          - profile: caddy
+            namespace: shiro
+          - profile: bot
+            namespace: shiro
+          - profile: vpn-node
+            namespace: shiro-vpn-node
           - profile: observability
             namespace: observability
   template:

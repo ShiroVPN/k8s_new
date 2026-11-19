@@ -7,8 +7,5 @@ configMapGenerator:
   - name: main-api-config
     files:
       - config.yml=main_api_config.yaml
-  - name: caddy-config
-    files:
-      - Caddyfile
 generatorOptions:
   disableNameSuffixHash: true

@@ -2,27 +2,22 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../configs
-  # deps: open-source services we only run
-  - deps/postgres/pvc.yaml
-  - deps/postgres/deployment.yaml
-  - deps/postgres/service.yaml
-  - deps/rabbitmq/pvc.yaml
-  - deps/rabbitmq/deployment.yaml
-  - deps/rabbitmq/service.yaml
-  - deps/redis/deployment.yaml
-  - deps/redis/service.yaml
+  - postgres/pvc.yaml
+  - postgres/deployment.yaml
+  - postgres/service.yaml
+  - rabbitmq/pvc.yaml
+  - rabbitmq/deployment.yaml
+  - rabbitmq/service.yaml
+  - redis/deployment.yaml
+  - redis/service.yaml
   # aux: panels and proxies around the stack
-  - aux/caddy/pvc.yaml
-  - aux/caddy/deployment.yaml
   - aux/dbgate/deployment.yaml
   - aux/dbgate/service.yaml
   - aux/pgadmin/servers.yaml
   - aux/pgadmin/deployment.yaml
   - aux/pgadmin/service.yaml
   # apps: our own code
-  - apps/main-api-worker/deployment.yaml
-  - apps/main-api-scheduler/deployment.yaml
-  - apps/main-api-webhook/deployment.yaml
-  - apps/main-api-webhook/service.yaml
-  - apps/bot/deployment.yaml
-  - apps/bot/service.yaml
+  - main_api/worker/deployment.yaml
+  - main_api/scheduler/deployment.yaml
+  - main_api/webhook/deployment.yaml
+  - main_api/webhook/service.yaml

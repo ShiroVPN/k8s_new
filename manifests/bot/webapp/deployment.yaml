@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bot-webapp
+  labels:
+    app: bot-webapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bot-webapp
+  template:
+    metadata:
+      labels:
+        app: bot-webapp
+    spec:
+      imagePullSecrets:
+        - name: ghcr
+      containers:
+        - name: bot-webapp
+          image: ghcr.io/shirovpn/botv2:unset
+          command:
+            - /venv/bin/python
+            - -m
+            - apps.webapp
+          ports:
+            - containerPort: 18088
+          env:
+            - name: BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: BROKER_URL
+            - name: BROKER_RESULT_BACKEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: BACKEND_URL
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: shiro-secret
+                  key: TELEGRAM_BOT_TOKEN
+            - name: API_STUB
+              value: "0"
+            - name: STUB_PAYMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: env-config
+                  key: STUB_PAYMENT
+            - name: ADMIN_TELEGRAM_IDS
+              valueFrom:
+                configMapKeyRef:
+                  name: env-config
+                  key: ADMIN_TELEGRAM_IDS
+            - name: MINI_APP_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: env-config
+                  key: MINI_APP_DOMAIN
+            - name: MINI_APP_URL
+              value: https://$(MINI_APP_DOMAIN)
+            - name: WEBAPP_PORT
+              value: "18088"
+          volumeMounts:
+            - name: bot-config
+              mountPath: /config
+          readinessProbe:
+            tcpSocket:
+              port: 18088
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+      volumes:
+        - name: bot-config
+          configMap:
+            name: bot-config

@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: peerhub-3xui-worker
+  labels:
+    app: peerhub-3xui-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: peerhub-3xui-worker
+  template:
+    metadata:
+      labels:
+        app: peerhub-3xui-worker
+    spec:
+      imagePullSecrets:
+        - name: ghcr
+      containers:
+        - name: peerhub-3xui-worker
+          image: ghcr.io/shirovpn/peerhub_3xui_worker:unset
+          command:
+            - /venv/bin/taskiq
+            - worker
+            - apps.worker:broker
+
+          env:
+            - name: BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: BROKER_URL
+            - name: BROKER_RESULT_BACKEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: BACKEND_URL
+            - name: PEERHUB_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: PEERHUB_ID
+            - name: COUNTRY
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: COUNTRY
+            - name: SERVER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: SERVER_NAME
+            - name: CONNECTION_TYPE
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: CONNECTION_TYPE
+            - name: HEARTBEAT_INTERVAL_IN_SECONDS
+              value: "60"
+            - name: XUI_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: XUI_URL
+            - name: XUI_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_TOKEN
+            - name: XUI_SUBSCRIPTION_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: XUI_SUBSCRIPTION_BASE_URL
+            - name: XUI_INBOUND_IDS
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: XUI_INBOUND_IDS
+            - name: XUI_VERIFY
+              valueFrom:
+                configMapKeyRef:
+                  name: peerhub-config
+                  key: XUI_VERIFY
+            - name: OTEL_COLLECTOR_ENDPOINT
+              value: http://otel-collector.observability.svc.cluster.local:4317
+            - name: OTEL_SERVICE_NAME
+              value: peerhub_3xui_worker
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
