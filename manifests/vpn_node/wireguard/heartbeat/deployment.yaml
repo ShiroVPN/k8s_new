@@ -33,22 +33,19 @@ spec:
             - name: PEERHUB_ID
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
+                  name: vpn-node-config
                   key: PEERHUB_ID
             - name: CONNECTION_TYPE
-              valueFrom:
-                configMapKeyRef:
-                  name: peerhub-config
-                  key: CONNECTION_TYPE
+              value: wireguard
             - name: COUNTRY
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
+                  name: vpn-node-config
                   key: COUNTRY
             - name: SERVER_NAME
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
+                  name: vpn-node-config
                   key: SERVER_NAME
             - name: HEARTBEAT_INTERVAL_IN_SECONDS
               value: "60"

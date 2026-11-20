@@ -5,6 +5,7 @@ namespace: shiro-vpn-node
 
 resources:
   - ../../manifests/vpn_node
+  - ../../configs/caddy
 
 generators:
   - ksops.yaml

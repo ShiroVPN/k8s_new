@@ -109,7 +109,7 @@ peerhub_configure() {
   *) return 0 ;;
   esac
 
-  file="overlays/$profile/peerhub-config.yaml"
+  file="overlays/$profile/vpn-node_config.yaml"
   if [ ! -f "$file" ]; then
     default_id=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
     read -r -p "PEERHUB_ID [$default_id]: " peerhub_id
@@ -118,61 +118,46 @@ peerhub_configure() {
     country=${country:-Germany}
     read -r -p "SERVER_NAME (max 15) [local]: " server_name
     server_name=${server_name:-local}
-    read -r -p "WG_HOST [0.0.0.0]: " wg_host
-    wg_host=${wg_host:-0.0.0.0}
+    read -r -p "SERVER_HOST (node host, no scheme): " server_host
+    : "${server_host:?SERVER_HOST is empty}"
     read -r -p "WG_PORT [51820]: " wg_port
     wg_port=${wg_port:-51820}
-    read -r -p "CONNECTION_TYPE [xui]: " connection_type
-    connection_type=${connection_type:-xui}
-
-    default_panel_path="/$(cat /proc/sys/kernel/random/uuid 2>/dev/null | cut -c1-8)"
-    read -r -p "XUI_WEB_BASE_PATH [$default_panel_path]: " web_base_path
-    web_base_path=${web_base_path:-$default_panel_path}
-    default_sub_path="/$(cat /proc/sys/kernel/random/uuid 2>/dev/null | cut -c1-8)"
-    read -r -p "XUI_SUB_PATH [$default_sub_path]: " sub_path
-    sub_path=${sub_path:-$default_sub_path}
-    read -r -p "XUI_SUBSCRIPTION_HOST (node host or IP, no scheme): " subscription_host
-    : "${subscription_host:?XUI_SUBSCRIPTION_HOST is empty}"
+    read -r -p "XUI_VLESS_PORT [22531]: " vless_port
+    vless_port=${vless_port:-22531}
+    read -r -p "XUI_AWG_PORT [51830]: " awg_port
+    awg_port=${awg_port:-51830}
     read -r -p "XUI_INBOUND_IDS (empty = every inbound): " inbound_ids
     read -r -p "XUI_VERIFY [true]: " xui_verify
     xui_verify=${xui_verify:-true}
-    read -r -p "XUI_REALITY_TARGET (host:443): " reality_target
-    : "${reality_target:?XUI_REALITY_TARGET is empty}"
-    default_server_names=${reality_target%:*}
-    read -r -p "XUI_REALITY_SERVER_NAMES [$default_server_names]: " server_names
-    server_names=${server_names:-$default_server_names}
-
-    web_base_path="/${web_base_path#/}"
-    web_base_path="${web_base_path%/}"
-    sub_path="/${sub_path#/}"
-    sub_path="${sub_path%/}"
 
     cat > "$file" <<EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: peerhub-config
+  name: vpn-node-config
 data:
   PEERHUB_ID: "$peerhub_id"
   COUNTRY: "$country"
   SERVER_NAME: "$server_name"
-  CONNECTION_TYPE: "$connection_type"
-  WG_HOST: "$wg_host"
+  SERVER_HOST: "$server_host"
+  WG_HOST: "$server_host"
   WG_PORT: "$wg_port"
-  XUI_WEB_BASE_PATH: "$web_base_path"
-  XUI_SUB_PATH: "$sub_path"
-  XUI_URL: "http://xui:2053$web_base_path"
-  XUI_SUBSCRIPTION_BASE_URL: "http://$subscription_host:2096$sub_path"
+  XUI_VLESS_PORT: "$vless_port"
+  XUI_AWG_PORT: "$awg_port"
   XUI_INBOUND_IDS: "$inbound_ids"
   XUI_VERIFY: "$xui_verify"
-  XUI_REALITY_TARGET: "$reality_target"
-  XUI_REALITY_SERVER_NAMES: "$server_names"
 EOF
     echo "wrote $file"
   fi
 
-  if ! grep -q '^  CONNECTION_TYPE:' "$file"; then
-    echo "$file predates the 3xui keys; delete it and run again"
+  missing=""
+  for key in PEERHUB_ID COUNTRY SERVER_NAME SERVER_HOST WG_HOST WG_PORT \
+    XUI_VLESS_PORT XUI_AWG_PORT XUI_INBOUND_IDS XUI_VERIFY; do
+    grep -q "^  $key:" "$file" || missing="$missing $key"
+  done
+
+  if [ -n "$missing" ]; then
+    echo "$file lacks:$missing; delete it and run again"
     exit 1
   fi
 

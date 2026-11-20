@@ -27,7 +27,7 @@ spec:
             - -password
             - $(XUI_ADMIN_PASSWORD)
             - -webBasePath
-            - $(XUI_WEB_BASE_PATH)
+            - /$(XUI_PANEL_BASE_PATH)
           env:
             - name: XUI_ADMIN_USERNAME
               valueFrom:
@@ -39,11 +39,11 @@ spec:
                 secretKeyRef:
                   name: node-secret
                   key: XUI_ADMIN_PASSWORD
-            - name: XUI_WEB_BASE_PATH
+            - name: XUI_PANEL_BASE_PATH
               valueFrom:
-                configMapKeyRef:
-                  name: peerhub-config
-                  key: XUI_WEB_BASE_PATH
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_PANEL_BASE_PATH
             - name: XUI_DB_TYPE
               value: postgres
             - name: XUI_DB_DSN
@@ -127,16 +127,16 @@ spec:
             - python3
             - /bootstrap/provision.py
           env:
-            - name: XUI_WEB_BASE_PATH
+            - name: XUI_PANEL_BASE_PATH
               valueFrom:
-                configMapKeyRef:
-                  name: peerhub-config
-                  key: XUI_WEB_BASE_PATH
-            - name: XUI_SUB_PATH
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_PANEL_BASE_PATH
+            - name: XUI_SUBSCRIPTION_BASE_PATH
               valueFrom:
-                configMapKeyRef:
-                  name: peerhub-config
-                  key: XUI_SUB_PATH
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_SUBSCRIPTION_BASE_PATH
             - name: XUI_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -159,13 +159,13 @@ spec:
                   key: XUI_REALITY_SHORT_IDS
             - name: XUI_REALITY_TARGET
               valueFrom:
-                configMapKeyRef:
-                  name: peerhub-config
+                secretKeyRef:
+                  name: node-secret
                   key: XUI_REALITY_TARGET
             - name: XUI_REALITY_SERVER_NAMES
               valueFrom:
-                configMapKeyRef:
-                  name: peerhub-config
+                secretKeyRef:
+                  name: node-secret
                   key: XUI_REALITY_SERVER_NAMES
             - name: XUI_AWG_PRIVATE_KEY
               valueFrom:
@@ -182,6 +182,16 @@ spec:
                 secretKeyRef:
                   name: node-secret
                   key: XUI_AWG_HEADER_PROTECTION_KEY
+            - name: XUI_VLESS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: vpn-node-config
+                  key: XUI_VLESS_PORT
+            - name: XUI_AWG_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: vpn-node-config
+                  key: XUI_AWG_PORT
           volumeMounts:
             - name: bootstrap
               mountPath: /bootstrap/provision.py

@@ -49,7 +49,7 @@ spec:
             - name: PEERHUB_ID
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
+                  name: vpn-node-config
                   key: PEERHUB_ID
             - name: KV_STORE_FILE
               value: /data/database.yml

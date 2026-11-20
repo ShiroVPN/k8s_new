@@ -13,16 +13,24 @@ WAIT_SECONDS = 2
 
 
 def panel_api() -> str:
-    path = os.environ["XUI_WEB_BASE_PATH"].strip("/")
+    path = os.environ["XUI_PANEL_BASE_PATH"].strip("/")
     return f"{PANEL_URL}/{path}/panel/api/"
 
 
 def sub_base() -> str:
-    return "/" + os.environ["XUI_SUB_PATH"].strip("/") + "/"
+    return "/" + os.environ["XUI_SUBSCRIPTION_BASE_PATH"].strip("/") + "/"
 
 
 def env_list(name: str) -> list[str]:
     return [part.strip() for part in os.environ[name].split(",") if part.strip()]
+
+
+def with_port(inbound: dict[str, object]) -> None:
+    if inbound["protocol"] == "amneziawg":
+        port = os.environ["XUI_AWG_PORT"]
+    else:
+        port = os.environ["XUI_VLESS_PORT"]
+    inbound["port"] = int(port)
 
 
 def with_credentials(inbound: dict[str, object]) -> None:
@@ -102,11 +110,16 @@ def import_inbounds(token: str) -> None:
         inbound = json.loads(path.read_text())
         if inbound["tag"] in existing:
             continue
+        with_port(inbound)
         with_credentials(inbound)
         call(token, "POST", "inbounds/import", {"data": json.dumps(inbound)})
 
 
 def main() -> None:
+    panel_path = os.environ["XUI_PANEL_BASE_PATH"].strip("/")
+    sub_path = os.environ["XUI_SUBSCRIPTION_BASE_PATH"].strip("/")
+    if panel_path == sub_path:
+        raise SystemExit("panel and subscription paths must differ")
     token = os.environ["XUI_TOKEN"]
     wait_for_panel(token)
     path_changed = set_sub_path(token)

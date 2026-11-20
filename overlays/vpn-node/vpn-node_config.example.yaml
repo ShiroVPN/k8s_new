@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vpn-node-config
+data:
+  PEERHUB_ID: "<uuid>"
+  COUNTRY: "<country>"
+  SERVER_NAME: "<server-name>"
+  SERVER_HOST: "<node-host>"
+  WG_HOST: "<node-host>"
+  WG_PORT: "51820"
+  XUI_VLESS_PORT: "22531"
+  XUI_AWG_PORT: "51830"
+  XUI_INBOUND_IDS: ""
+  XUI_VERIFY: "true"

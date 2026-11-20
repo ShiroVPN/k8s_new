@@ -7,5 +7,5 @@ metadata:
       exec:
         path: ksops
 files:
-  - ../../secrets/node.enc.yaml
+  - ../../secrets/vpn-node.enc.yaml
   - ../../secrets/ghcr.enc.yaml

@@ -41,12 +41,12 @@ spec:
             - name: INIT_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
+                  name: vpn-node-config
                   key: WG_HOST
             - name: INIT_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
+                  name: vpn-node-config
                   key: WG_PORT
             - name: INIT_IPV4_CIDR
               value: 10.8.0.0/20

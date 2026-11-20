@@ -24,6 +24,17 @@ spec:
               hostPort: 80
             - containerPort: 443
               hostPort: 443
+          env:
+            - name: SERVER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: vpn-node-config
+                  key: SERVER_HOST
+            - name: XUI_PANEL_BASE_PATH
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_PANEL_BASE_PATH
           volumeMounts:
             - name: caddyfile
               mountPath: /etc/caddy/Caddyfile

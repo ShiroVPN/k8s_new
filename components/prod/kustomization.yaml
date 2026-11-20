@@ -14,26 +14,6 @@ images:
 patches:
   - target:
       kind: Deployment
-      name: caddy
-    patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: caddy
-      spec:
-        template:
-          spec:
-            containers:
-              - name: caddy
-                env:
-                  - name: WEBHOOK_DOMAIN
-                    value: webhook.example.com
-                  - name: MINI_APP_DOMAIN
-                    value: app.webhook.example.com
-                  - name: ADMIN_DOMAIN
-                    value: admin.example.com
-  - target:
-      kind: Deployment
       name: bot
     patch: |-
       apiVersion: apps/v1

@@ -37,49 +37,55 @@ spec:
             - name: PEERHUB_ID
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
+                  name: vpn-node-config
                   key: PEERHUB_ID
             - name: COUNTRY
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
+                  name: vpn-node-config
                   key: COUNTRY
             - name: SERVER_NAME
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
+                  name: vpn-node-config
                   key: SERVER_NAME
             - name: CONNECTION_TYPE
-              valueFrom:
-                configMapKeyRef:
-                  name: peerhub-config
-                  key: CONNECTION_TYPE
+              value: xui
             - name: HEARTBEAT_INTERVAL_IN_SECONDS
               value: "60"
-            - name: XUI_URL
+            - name: XUI_PANEL_BASE_PATH
               valueFrom:
-                configMapKeyRef:
-                  name: peerhub-config
-                  key: XUI_URL
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_PANEL_BASE_PATH
+            - name: XUI_URL
+              value: "http://xui:2053/$(XUI_PANEL_BASE_PATH)"
             - name: XUI_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: node-secret
                   key: XUI_TOKEN
-            - name: XUI_SUBSCRIPTION_BASE_URL
+            - name: SERVER_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
-                  key: XUI_SUBSCRIPTION_BASE_URL
+                  name: vpn-node-config
+                  key: SERVER_HOST
+            - name: XUI_SUBSCRIPTION_BASE_PATH
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_SUBSCRIPTION_BASE_PATH
+            - name: XUI_SUBSCRIPTION_BASE_URL
+              value: "https://$(SERVER_HOST)/$(XUI_SUBSCRIPTION_BASE_PATH)"
             - name: XUI_INBOUND_IDS
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
+                  name: vpn-node-config
                   key: XUI_INBOUND_IDS
             - name: XUI_VERIFY
               valueFrom:
                 configMapKeyRef:
-                  name: peerhub-config
+                  name: vpn-node-config
                   key: XUI_VERIFY
             - name: OTEL_COLLECTOR_ENDPOINT
               value: http://otel-collector.observability.svc.cluster.local:4317

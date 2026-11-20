@@ -10,8 +10,6 @@ spec:
         elements:
           - profile: core
             namespace: shiro
-          - profile: caddy
-            namespace: shiro
           - profile: bot
             namespace: shiro
           - profile: vpn-node
@@ -39,3 +37,5 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
