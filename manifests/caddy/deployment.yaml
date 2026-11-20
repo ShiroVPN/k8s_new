@@ -24,22 +24,6 @@ spec:
               hostPort: 80
             - containerPort: 443
               hostPort: 443
-          env:
-            - name: WEBHOOK_DOMAIN
-              valueFrom:
-                configMapKeyRef:
-                  name: env-config
-                  key: WEBHOOK_DOMAIN
-            - name: MINI_APP_DOMAIN
-              valueFrom:
-                configMapKeyRef:
-                  name: env-config
-                  key: MINI_APP_DOMAIN
-            - name: ADMIN_DOMAIN
-              valueFrom:
-                configMapKeyRef:
-                  name: env-config
-                  key: ADMIN_DOMAIN
           volumeMounts:
             - name: caddyfile
               mountPath: /etc/caddy/Caddyfile

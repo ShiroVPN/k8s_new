@@ -41,21 +41,6 @@ spec:
                   key: TELEGRAM_BOT_TOKEN
             - name: API_STUB
               value: "0"
-            - name: STUB_PAYMENT
-              valueFrom:
-                configMapKeyRef:
-                  name: env-config
-                  key: STUB_PAYMENT
-            - name: ADMIN_TELEGRAM_IDS
-              valueFrom:
-                configMapKeyRef:
-                  name: env-config
-                  key: ADMIN_TELEGRAM_IDS
-            - name: MINI_APP_DOMAIN
-              valueFrom:
-                configMapKeyRef:
-                  name: env-config
-                  key: MINI_APP_DOMAIN
             - name: MINI_APP_URL
               value: https://$(MINI_APP_DOMAIN)
           volumeMounts:

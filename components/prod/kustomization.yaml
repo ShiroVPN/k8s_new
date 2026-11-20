@@ -1,7 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
-resources:
-  - ../../configs/prod
 images:
   - name: ghcr.io/shirovpn/main_api_worker
     newTag: "0.2.1-dev"
@@ -13,3 +11,84 @@ images:
     newTag: "0.1.0"
   - name: ghcr.io/shirovpn/peerhub_heartbeat
     newTag: "v0.3.0"
+patches:
+  - target:
+      kind: Deployment
+      name: caddy
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: caddy
+      spec:
+        template:
+          spec:
+            containers:
+              - name: caddy
+                env:
+                  - name: WEBHOOK_DOMAIN
+                    value: webhook.example.com
+                  - name: MINI_APP_DOMAIN
+                    value: app.webhook.example.com
+                  - name: ADMIN_DOMAIN
+                    value: admin.example.com
+  - target:
+      kind: Deployment
+      name: bot
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: bot
+      spec:
+        template:
+          spec:
+            containers:
+              - name: bot
+                env:
+                  - name: STUB_PAYMENT
+                    value: "1"
+                  - name: ADMIN_TELEGRAM_IDS
+                    value: ""
+                  - name: MINI_APP_DOMAIN
+                    value: app.webhook.example.com
+  - target:
+      kind: Deployment
+      name: bot-notify-worker
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: bot-notify-worker
+      spec:
+        template:
+          spec:
+            containers:
+              - name: bot-notify-worker
+                env:
+                  - name: STUB_PAYMENT
+                    value: "1"
+                  - name: ADMIN_TELEGRAM_IDS
+                    value: ""
+                  - name: MINI_APP_DOMAIN
+                    value: app.webhook.example.com
+  - target:
+      kind: Deployment
+      name: bot-webapp
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: bot-webapp
+      spec:
+        template:
+          spec:
+            containers:
+              - name: bot-webapp
+                env:
+                  - name: STUB_PAYMENT
+                    value: "1"
+                  - name: ADMIN_TELEGRAM_IDS
+                    value: ""
+                  - name: MINI_APP_DOMAIN
+                    value: app.webhook.example.com
