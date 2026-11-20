@@ -44,6 +44,13 @@ spec:
                 configMapKeyRef:
                   name: peerhub-config
                   key: XUI_WEB_BASE_PATH
+            - name: XUI_DB_TYPE
+              value: postgres
+            - name: XUI_DB_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_DB_DSN
           volumeMounts:
             - name: data
               mountPath: /etc/x-ui
@@ -52,29 +59,46 @@ spec:
               cpu: 20m
               memory: 64Mi
         - name: token
-          image: python:3.14-alpine
+          image: postgres:16
           command:
-            - python3
-            - /bootstrap/token.py
+            - psql
+            - -v
+            - ON_ERROR_STOP=1
+            - -v
+            - token=$(XUI_TOKEN)
+            - -f
+            - /bootstrap/token.sql
+            - $(XUI_DB_DSN)
           env:
             - name: XUI_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: node-secret
                   key: XUI_TOKEN
+            - name: XUI_DB_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_DB_DSN
           volumeMounts:
-            - name: data
-              mountPath: /etc/x-ui
             - name: bootstrap
               mountPath: /bootstrap
               readOnly: true
           resources:
             requests:
               cpu: 20m
-              memory: 64Mi
+              memory: 32Mi
       containers:
         - name: xui
           image: ghcr.io/mhsanaei/3x-ui:v3.11.0
+          env:
+            - name: XUI_DB_TYPE
+              value: postgres
+            - name: XUI_DB_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: node-secret
+                  key: XUI_DB_DSN
           ports:
             - name: panel
               containerPort: 2053
