@@ -7,7 +7,7 @@ K3S_VERSION=v1.37.2+k3s1
 ARGOCD_VERSION=v3.6.1
 NAMESPACE=shiro
 FORWARD_DIR=${TMPDIR:-/tmp}/shiro-forward
-FORWARD_ADDRESS=${FORWARD_ADDRESS:-127.0.0.1}
+FORWARD_ADDRESS=${FORWARD_ADDRESS:-}
 IMAGE_CACHE=${IMAGE_CACHE:-/var/lib/shiro-k8s-images.tar}
 
 k() { sudo k3s kubectl "$@"; }
@@ -277,6 +277,15 @@ forward_supervise() {
   ) &
 }
 
+forward_default_address() {
+  address=$(tailscale ip -4 2>/dev/null | head -n1 || true)
+  if [ -n "$address" ] && ip -4 -o addr show | grep -q "inet $address/"; then
+    echo "$address"
+  else
+    echo 127.0.0.1
+  fi
+}
+
 forward_start() {
   mkdir -p "$FORWARD_DIR"
 
@@ -316,6 +325,13 @@ forward_start() {
     resolved="$resolved$line"$'\n'
   done
 
+  if [ -z "$FORWARD_ADDRESS" ]; then
+    default_address=$(forward_default_address)
+    printf 'FORWARD_ADDRESS [%s]: ' "$default_address"
+    read -r FORWARD_ADDRESS || true
+    FORWARD_ADDRESS=${FORWARD_ADDRESS:-$default_address}
+  fi
+
   sudo -v
 
   while read -r name namespace target port local_port _; do
@@ -354,18 +370,23 @@ cache_images() {
     done | sed -n 's/^ *image: *//p' | grep -v '^ghcr.io/shirovpn/' | sort -u
   )
 
+  total=$(echo "$images" | wc -l)
+  index=0
   failed=""
+  start=$SECONDS
   for image in $images; do
+    index=$((index + 1))
     full=$(full_image "$image")
     if sudo k3s ctr -n k8s.io images ls -q | grep -qx "$full"; then
-      echo "cached $image"
+      echo "[$index/$total] cached $image"
       continue
     fi
-    echo "pulling $image"
-    if sudo k3s ctr -n k8s.io images pull "$full" >/dev/null; then
-      echo "ok $image"
+    echo "[$index/$total] pulling $image"
+    started=$SECONDS
+    if sudo k3s ctr -n k8s.io images pull "$full"; then
+      echo "[$index/$total] ok $image in $((SECONDS - started))s"
     else
-      echo "FAILED $image"
+      echo "[$index/$total] FAILED $image after $((SECONDS - started))s"
       failed="$failed $image"
     fi
   done
@@ -376,6 +397,7 @@ cache_images() {
     echo "check DNS and egress on the node, then run this again"
     exit 1
   fi
+  echo "$total images ready in $((SECONDS - start))s"
 }
 
 image_platform() {
@@ -386,13 +408,45 @@ image_platform() {
   esac
 }
 
+progress() {
+  start=$SECONDS
+  file=${1:-}
+  while :; do
+    sleep 2
+    line="$((SECONDS - start))s"
+    if [ -n "$file" ] && [ -f "$file" ]; then
+      line="$(du -h "$file" | cut -f1) written, $line"
+    fi
+    if [ -t 2 ]; then
+      printf '\r  %s' "$line" >&2
+    else
+      echo "  $line" >&2
+    fi
+  done
+}
+
+with_progress() {
+  file=${1:-}
+  shift
+  progress "$file" &
+  reporter=$!
+  status=0
+  "$@" || status=$?
+  kill "$reporter" 2>/dev/null || true
+  wait "$reporter" 2>/dev/null || true
+  if [ -t 2 ]; then printf '\r\033[K' >&2; fi
+  return "$status"
+}
+
 save_images() {
   sudo -v
+  refs=$(sudo k3s ctr -n k8s.io images ls -q | grep -v '^sha256:' | sort -u)
+  echo "exporting $(echo "$refs" | wc -l) images to $IMAGE_CACHE"
+  start=$SECONDS
   # shellcheck disable=SC2046
-  sudo k3s ctr -n k8s.io images export \
-    --platform "$(image_platform)" "$IMAGE_CACHE" \
-    $(sudo k3s ctr -n k8s.io images ls -q | grep -v '^sha256:' | sort -u)
-  echo "wrote $IMAGE_CACHE ($(du -h "$IMAGE_CACHE" | cut -f1))"
+  with_progress "$IMAGE_CACHE" sudo k3s ctr -n k8s.io images export \
+    --platform "$(image_platform)" "$IMAGE_CACHE" $refs
+  echo "wrote $IMAGE_CACHE ($(du -h "$IMAGE_CACHE" | cut -f1)) in $((SECONDS - start))s"
 }
 
 load_images() {
@@ -400,8 +454,11 @@ load_images() {
     echo "no image cache at $IMAGE_CACHE, set IMAGE_CACHE to another path"
     exit 1
   fi
-  sudo k3s ctr -n k8s.io images import \
+  echo "importing $IMAGE_CACHE ($(du -h "$IMAGE_CACHE" | cut -f1))"
+  start=$SECONDS
+  with_progress "" sudo k3s ctr -n k8s.io images import \
     --platform "$(image_platform)" "$IMAGE_CACHE"
+  echo "imported in $((SECONDS - start))s"
 }
 
 case "${1:-}" in
@@ -454,9 +511,9 @@ usage: $0 <command>
                                      with a password; reconnects by itself
   forward stop                       stop every forward
 
-  FORWARD_ADDRESS=<ip>               address the forwards listen on, default
-                                     127.0.0.1; set the Tailscale IP to reach
-                                     the panels over Tailscale
+  FORWARD_ADDRESS=<ip>               address the forwards listen on; forward
+                                     asks for it, default is the Tailscale IP
+                                     while tailscale is up, else 127.0.0.1
 EOF
   exit 1
   ;;
