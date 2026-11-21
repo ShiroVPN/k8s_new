@@ -126,7 +126,8 @@ peerhub_configure() {
     vless_port=${vless_port:-22531}
     read -r -p "XUI_AWG_PORT [51830]: " awg_port
     awg_port=${awg_port:-51830}
-    read -r -p "XUI_INBOUND_IDS (empty = every inbound): " inbound_ids
+    read -r -p "XUI_INBOUND_IDS as a JSON array, e.g. [2,3] (empty = every inbound): " inbound_ids
+    inbound_ids=${inbound_ids:-[]}
     read -r -p "XUI_VERIFY [true]: " xui_verify
     xui_verify=${xui_verify:-true}
 
@@ -163,7 +164,23 @@ EOF
 
   namespace="shiro-$profile"
   k create namespace "$namespace" --dry-run=client -o yaml | k apply -f -
-  k apply -n "$namespace" -f "$file"
+  applied=$(k apply -n "$namespace" -f "$file")
+  echo "$applied"
+  case "$applied" in
+  *" unchanged") return 0 ;;
+  esac
+  for deploy in $(k -n "$namespace" get deploy -o name); do
+    manifest=$(k -n "$namespace" get "$deploy" -o yaml)
+    case "$manifest" in
+    *"name: vpn-node-config"*) ;;
+    *) continue ;;
+    esac
+    replicas=$(k -n "$namespace" get "$deploy" -o jsonpath='{.spec.replicas}')
+    [ "${replicas:-1}" -gt 0 ] || continue
+    app=$(k -n "$namespace" get "$deploy" \
+      -o jsonpath='{.spec.selector.matchLabels.app}')
+    k -n "$namespace" delete pod -l "app=$app" --wait=false
+  done
 }
 
 label() {
