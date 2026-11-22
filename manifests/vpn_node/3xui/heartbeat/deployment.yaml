@@ -37,7 +37,7 @@ spec:
             - name: PEERHUB_ID
               valueFrom:
                 configMapKeyRef:
-                  name: vpn-node-config
+                  name: xui-peerhub-config
                   key: PEERHUB_ID
             - name: COUNTRY
               valueFrom:

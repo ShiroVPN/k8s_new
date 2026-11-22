@@ -5,7 +5,7 @@ metadata:
   labels:
     app: peerhub-wireguard-worker
 spec:
-  replicas: 0
+  replicas: 1
   strategy:
     type: Recreate
   selector:
@@ -49,7 +49,7 @@ spec:
             - name: PEERHUB_ID
               valueFrom:
                 configMapKeyRef:
-                  name: vpn-node-config
+                  name: wg-peerhub-config
                   key: PEERHUB_ID
             - name: KV_STORE_FILE
               value: /data/database.yml

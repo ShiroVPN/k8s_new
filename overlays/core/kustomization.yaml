@@ -8,12 +8,3 @@ resources:
 
 generators:
   - ksops.yaml
-
-patches:
-  - target:
-      kind: Deployment
-    patch: |-
-      - op: add
-        path: /spec/template/spec/nodeSelector
-        value:
-          shiro.io/core: "true"
