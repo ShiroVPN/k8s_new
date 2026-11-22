@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vpn-node-config
+data:
+  SERVER_NAME: "unset"
+  SERVER_HOST: "unset"
+  COUNTRY: "unset"
+  WG_HOST: "unset"
+  WG_PORT: "unset"
+  XUI_VLESS_PORT: "unset"
+  XUI_AWG_PORT: "unset"
+  XUI_INBOUND_IDS: "[]"
+  XUI_VERIFY: "true"
+  XUI_PEERHUB_ID: "unset"
+  WG_PEERHUB_ID: "unset"

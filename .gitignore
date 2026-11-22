@@ -2,4 +2,3 @@ secrets/*.yaml
 !secrets/*.example.yaml
 !secrets/*.enc.yaml
 *.agekey
-overlays/*/vpn-node_config.yaml
