@@ -5,8 +5,6 @@ resources:
   - ../../manifests/vpn_node
   - ../../configs/caddy
   - vpn-node_config.yaml
-  - xui-peerhub-config.yaml
-  - wg-peerhub-config.yaml
 
 generators:
   - ksops.yaml

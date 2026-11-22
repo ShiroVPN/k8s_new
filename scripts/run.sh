@@ -289,22 +289,8 @@ apply_vpn_node() {
                 XUI_AWG_PORT: "$awg_port"
                 XUI_INBOUND_IDS: "$inbound_ids"
                 XUI_VERIFY: "$verify"
-        - target:
-            kind: ConfigMap
-            name: xui-peerhub-config
-          patch: |-
-            - op: add
-              path: /data
-              value:
-                PEERHUB_ID: "$xui_id"
-        - target:
-            kind: ConfigMap
-            name: wg-peerhub-config
-          patch: |-
-            - op: add
-              path: /data
-              value:
-                PEERHUB_ID: "$wg_id"
+                XUI_PEERHUB_ID: "$xui_id"
+                WG_PEERHUB_ID: "$wg_id"
         - target:
             kind: Deployment
           patch: |-

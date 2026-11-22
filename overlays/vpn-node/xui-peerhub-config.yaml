@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: xui-peerhub-config
-data:
-  PEERHUB_ID: "unset"

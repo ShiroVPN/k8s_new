@@ -49,8 +49,8 @@ spec:
             - name: PEERHUB_ID
               valueFrom:
                 configMapKeyRef:
-                  name: wg-peerhub-config
-                  key: PEERHUB_ID
+                  name: vpn-node-config
+                  key: WG_PEERHUB_ID
             - name: KV_STORE_FILE
               value: /data/database.yml
             - name: OTEL_COLLECTOR_ENDPOINT
