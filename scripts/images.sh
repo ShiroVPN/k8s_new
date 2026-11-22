@@ -92,9 +92,27 @@ cache_images() {
 }
 
 save_images() {
-  local refs start
+  local refs ready skipped ref start
   sudo -v
   refs=$(sudo k3s ctr -n k8s.io images ls -q | grep -v '^sha256:' | sort -u)
+  ready=$(sudo k3s ctr -n k8s.io images check 2>/dev/null |
+    awk '$4 == "complete" { print $1 }' | sort -u || true)
+  [ -n "$ready" ] || {
+    echo "ctr images check returned no complete refs" >&2
+    exit 1
+  }
+  skipped=$(comm -23 <(printf '%s\n' "$refs") <(printf '%s\n' "$ready"))
+  if [ -n "$skipped" ]; then
+    echo "skipping refs with missing content:" >&2
+    while read -r ref; do
+      echo "  $ref" >&2
+    done <<<"$skipped"
+    refs=$(comm -12 <(printf '%s\n' "$refs") <(printf '%s\n' "$ready"))
+  fi
+  [ -n "$refs" ] || {
+    echo "no complete images to export" >&2
+    exit 1
+  }
   echo "exporting $(echo "$refs" | wc -l) images to $IMAGE_CACHE"
   start=$SECONDS
   # shellcheck disable=SC2046
