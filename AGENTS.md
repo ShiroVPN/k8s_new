@@ -110,13 +110,14 @@ and exit on a bad value.
 These exist because of the host, not because of a manifest mistake. Remove them
 when the upstream or the host fixes the cause.
 
-- On a vpn node a container cannot send a signal: `kill -TERM` on its own child
-  returns `EPERM` as root and as uid 999, and `gosu` hangs there. Verified on
-  2026-11-23 on `798859.senko.network`.
-- Consequence for `xui-db`: the postgres entrypoint cannot stop its temporary
-  server, so a fresh `xui-db-data` never finishes its first boot, and a restart
-  on an unclean directory waits in recovery forever. Initialize such a volume
-  once out of band with `initdb` and `postgres --single`.
+- A vpn node confines its containers: `kill -TERM` on its own child returns
+  `EPERM` and `/proc/1/fd` is unreadable even as root, while the same image runs
+  unconfined on `pc-omarchy`. `xui-db` therefore sets
+  `securityContext.appArmorProfile: Unconfined`; without it `gosu` never
+  returns, postgres never starts and the pod sits `0/1` with no log output.
+- A first boot that is interrupted leaves a volume that never recovers. Build a
+  fresh `xui-db-data` out of band as uid 999 with `initdb`, then create the
+  panel database with `postgres --single`.
 - A PVC stuck `Terminating` keeps the Application `Progressing`, and with
   `PruneLast` the sync then never prunes anything. Delete the pod that mounts
   the claim; the finalizer releases at once.

@@ -16,6 +16,9 @@ spec:
       labels:
         app: xui-db
     spec:
+      securityContext:
+        appArmorProfile:
+          type: Unconfined
       containers:
         - name: xui-db
           image: postgres:16
