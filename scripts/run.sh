@@ -168,6 +168,7 @@ create_vpn_record() {
     echo "XUI_AWG_PORT=51830"
     echo "XUI_INBOUND_IDS=[]"
     echo "XUI_VERIFY=true"
+    echo "CADDY=on"
   } >"$path"
   echo "wrote $path" >&2
   echo "  git add $path" >&2
@@ -178,7 +179,7 @@ create_vpn_record() {
 read_vpn_record() {
   local path=$1 key
   for key in SERVER SERVER_NAME SERVER_HOST COUNTRY XUI_PEERHUB_ID \
-    XUI_VLESS_PORT XUI_AWG_PORT XUI_INBOUND_IDS XUI_VERIFY; do
+    XUI_VLESS_PORT XUI_AWG_PORT XUI_INBOUND_IDS XUI_VERIFY CADDY; do
     grep -qE "^$key=" "$path" || {
       echo "$path has no $key" >&2
       exit 1
@@ -189,18 +190,19 @@ read_vpn_record() {
     # shellcheck disable=SC1090
     source "$path"
     set +a
-    printf '%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
+    printf '%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
       "$SERVER" "$SERVER_NAME" "$SERVER_HOST" "$COUNTRY" "$XUI_PEERHUB_ID" \
-      "$XUI_VLESS_PORT" "$XUI_AWG_PORT" "$XUI_INBOUND_IDS" "$XUI_VERIFY"
+      "$XUI_VLESS_PORT" "$XUI_AWG_PORT" "$XUI_INBOUND_IDS" "$XUI_VERIFY" \
+      "$CADDY"
   )
 }
 
 validate_vpn_record() {
   local path=$1 line=$2
   local server server_name server_host country xui_id
-  local vless_port awg_port inbound_ids verify uuid_re
+  local vless_port awg_port inbound_ids verify caddy uuid_re
   IFS='|' read -r server server_name server_host country xui_id \
-    vless_port awg_port inbound_ids verify <<<"$line"
+    vless_port awg_port inbound_ids verify caddy <<<"$line"
   uuid_re='^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
   [ "$(basename "$path" .env)" = "$server_name" ] || {
     echo "$path must be named $server_name.env" >&2
@@ -234,6 +236,10 @@ validate_vpn_record() {
     echo "XUI_VERIFY must be true or false" >&2
     exit 1
   }
+  [ "$caddy" = on ] || [ "$caddy" = off ] || {
+    echo "CADDY must be on or off" >&2
+    exit 1
+  }
 }
 
 apply_vpn_node() {
@@ -249,7 +255,7 @@ apply_vpn_node() {
   values=$(read_vpn_record "$record")
   validate_vpn_record "$record" "$values"
   IFS='|' read -r server server_name server_host country xui_id \
-    vless_port awg_port inbound_ids verify <<<"$values"
+    vless_port awg_port inbound_ids verify caddy <<<"$values"
 
   k get node "$server" -o name >/dev/null || {
     echo "node $server is not in the cluster; join it first" >&2
@@ -292,6 +298,23 @@ apply_vpn_node() {
                     shiro.io/config-hash: "$config_hash"
 EOF
 )
+
+  if [ "$caddy" = off ]; then
+    extra+=$(cat <<EOF
+
+        - target:
+            kind: Deployment
+            name: caddy
+          patch: |-
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: caddy
+            spec:
+              replicas: 0
+EOF
+)
+  fi
 
   guard_node "$app" "$server"
   print_application "$app" overlays/vpn-node "$namespace" "$env" "$server" \
