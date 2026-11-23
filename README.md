@@ -8,7 +8,8 @@ observability и любое число VPN-нод. Окружение — это
 - `shiro` — postgres, rabbitmq, redis, main_api (worker, scheduler, webhook),
   bot (bot, notify-worker, webapp), dbgate, pgadmin.
 - `observability` — otel-collector, jaeger, prometheus, elasticsearch, grafana.
-- `shiro-vpn-<name>` — одна VPN-нода: caddy, 3x-ui, wg-easy и их воркеры.
+- `shiro-vpn-<name>` — одна VPN-нода: caddy, 3x-ui, xui-db, воркер и heartbeat
+  3x-ui.
 
 ## Запуск
 
@@ -34,6 +35,9 @@ K3S_URL=... K3S_TOKEN=... DEPLOY_KUBECONFIG_B64=... ./deploy.sh join_cluster
 Одна запись `vpn-nodes/<name>.env` на ноду. `run --apps vpn-node` находит её
 по имени узла, а если записи нет — спрашивает значения и создаёт файл.
 Запись надо закоммитить.
+
+Нода работает на 3x-ui. Клиент получает ссылку-подписку, приложение само
+загружает серверы по ней.
 
 ## Окружения
 

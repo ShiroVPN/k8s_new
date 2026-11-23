@@ -8,7 +8,7 @@ usage: ./deploy.sh run --env <dev|prod> --apps <app[,app...]>
 
   vpn-node  deploys this machine's vpn node. vpn-nodes/<name>.env is created
             on first use and holds SERVER, SERVER_NAME, SERVER_HOST, COUNTRY
-            and one peerhub id per connection type
+            and the xui peerhub id
 EOF
   exit 1
 }
@@ -135,8 +135,8 @@ find_vpn_record() {
 }
 
 create_vpn_record() {
-  local server=$1 name host country xui_id wg_id
-  local default_xui default_wg path
+  local server=$1 name host country xui_id
+  local default_xui path
   name=$(ask "SERVER_NAME (app suffix, for example de): ")
   [[ $name =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ && ${#name} -le 40 ]] || {
     echo "SERVER_NAME must be a DNS label of at most 40 characters" >&2
@@ -154,9 +154,7 @@ create_vpn_record() {
     exit 1
   }
   default_xui=$(cat /proc/sys/kernel/random/uuid)
-  default_wg=$(cat /proc/sys/kernel/random/uuid)
   xui_id=$(ask "XUI_PEERHUB_ID [$default_xui]: ")
-  wg_id=$(ask "WG_PEERHUB_ID [$default_wg]: ")
 
   path="vpn-nodes/$name.env"
   mkdir -p vpn-nodes
@@ -166,8 +164,6 @@ create_vpn_record() {
     echo "SERVER_HOST=$host"
     echo "COUNTRY=$country"
     echo "XUI_PEERHUB_ID=${xui_id:-$default_xui}"
-    echo "WG_PEERHUB_ID=${wg_id:-$default_wg}"
-    echo "WG_PORT=51820"
     echo "XUI_VLESS_PORT=22531"
     echo "XUI_AWG_PORT=51830"
     echo "XUI_INBOUND_IDS=[]"
@@ -182,8 +178,7 @@ create_vpn_record() {
 read_vpn_record() {
   local path=$1 key
   for key in SERVER SERVER_NAME SERVER_HOST COUNTRY XUI_PEERHUB_ID \
-    WG_PEERHUB_ID WG_PORT XUI_VLESS_PORT XUI_AWG_PORT XUI_INBOUND_IDS \
-    XUI_VERIFY; do
+    XUI_VLESS_PORT XUI_AWG_PORT XUI_INBOUND_IDS XUI_VERIFY; do
     grep -qE "^$key=" "$path" || {
       echo "$path has no $key" >&2
       exit 1
@@ -194,19 +189,18 @@ read_vpn_record() {
     # shellcheck disable=SC1090
     source "$path"
     set +a
-    printf '%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
+    printf '%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
       "$SERVER" "$SERVER_NAME" "$SERVER_HOST" "$COUNTRY" "$XUI_PEERHUB_ID" \
-      "$WG_PEERHUB_ID" "$WG_PORT" "$XUI_VLESS_PORT" "$XUI_AWG_PORT" \
-      "$XUI_INBOUND_IDS" "$XUI_VERIFY"
+      "$XUI_VLESS_PORT" "$XUI_AWG_PORT" "$XUI_INBOUND_IDS" "$XUI_VERIFY"
   )
 }
 
 validate_vpn_record() {
   local path=$1 line=$2
-  local server server_name server_host country xui_id wg_id wg_port
+  local server server_name server_host country xui_id
   local vless_port awg_port inbound_ids verify uuid_re
-  IFS='|' read -r server server_name server_host country xui_id wg_id \
-    wg_port vless_port awg_port inbound_ids verify <<<"$line"
+  IFS='|' read -r server server_name server_host country xui_id \
+    vless_port awg_port inbound_ids verify <<<"$line"
   uuid_re='^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
   [ "$(basename "$path" .env)" = "$server_name" ] || {
     echo "$path must be named $server_name.env" >&2
@@ -228,11 +222,7 @@ validate_vpn_record() {
     echo "XUI_PEERHUB_ID must be a uuid" >&2
     exit 1
   }
-  [[ $wg_id =~ $uuid_re ]] || {
-    echo "WG_PEERHUB_ID must be a uuid" >&2
-    exit 1
-  }
-  [[ $wg_port =~ ^[0-9]+$ && $vless_port =~ ^[0-9]+$ && $awg_port =~ ^[0-9]+$ ]] || {
+  [[ $vless_port =~ ^[0-9]+$ && $awg_port =~ ^[0-9]+$ ]] || {
     echo "ports must be numbers" >&2
     exit 1
   }
@@ -248,7 +238,7 @@ validate_vpn_record() {
 
 apply_vpn_node() {
   local env=$1 node=$2 record values app namespace
-  local server server_name server_host country xui_id wg_id wg_port
+  local server server_name server_host country xui_id
   local vless_port awg_port inbound_ids verify config_hash extra
 
   record=$(find_vpn_record "$node")
@@ -258,8 +248,8 @@ apply_vpn_node() {
 
   values=$(read_vpn_record "$record")
   validate_vpn_record "$record" "$values"
-  IFS='|' read -r server server_name server_host country xui_id wg_id \
-    wg_port vless_port awg_port inbound_ids verify <<<"$values"
+  IFS='|' read -r server server_name server_host country xui_id \
+    vless_port awg_port inbound_ids verify <<<"$values"
 
   k get node "$server" -o name >/dev/null || {
     echo "node $server is not in the cluster; join it first" >&2
@@ -269,7 +259,7 @@ apply_vpn_node() {
   app="$env-vpn-node-$server_name"
   namespace="shiro-vpn-$server_name"
   config_hash=$(printf '%s\n' "$server" "$server_name" "$server_host" \
-    "$country" "$xui_id" "$wg_id" "$wg_port" "$vless_port" "$awg_port" \
+    "$country" "$xui_id" "$vless_port" "$awg_port" \
     "$inbound_ids" "$verify" | sha256sum | cut -c1-16)
 
   extra=$(cat <<EOF
@@ -283,14 +273,11 @@ apply_vpn_node() {
                 SERVER_NAME: "$server_name"
                 SERVER_HOST: "$server_host"
                 COUNTRY: "$country"
-                WG_HOST: "$server_host"
-                WG_PORT: "$wg_port"
                 XUI_VLESS_PORT: "$vless_port"
                 XUI_AWG_PORT: "$awg_port"
                 XUI_INBOUND_IDS: "$inbound_ids"
                 XUI_VERIFY: "$verify"
                 XUI_PEERHUB_ID: "$xui_id"
-                WG_PEERHUB_ID: "$wg_id"
         - target:
             kind: Deployment
           patch: |-

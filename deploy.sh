@@ -23,8 +23,8 @@ usage: $0 <command>
   cache_images                       pull third-party images into containerd
   save_images                        export every image to $IMAGE_CACHE
   load_images                        import them back after a reinstall
-  forward [--all] [panel...]         port-forward panels; vpn panels are named
-                                     xui-<name> and wg-easy-<name>
+  forward [--all] [panel...]         port-forward panels; a vpn panel is named
+                                     xui-<name>
   forward stop                       stop every forward
 
   FORWARD_ADDRESS=<ip>               address the forwards listen on; forward

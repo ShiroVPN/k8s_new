@@ -18,9 +18,7 @@ EOF
   for record in vpn-nodes/*.env; do
     name=$(basename "$record" .env)
     printf 'xui-%s shiro-vpn-%s svc/xui 2053 %s yes\n' \
-      "$name" "$name" "$((18089 + index * 2))"
-    printf 'wg-easy-%s shiro-vpn-%s deploy/wg-easy 51821 %s yes\n' \
-      "$name" "$name" "$((18090 + index * 2))"
+      "$name" "$name" "$((18089 + index))"
     index=$((index + 1))
   done
   shopt -u nullglob

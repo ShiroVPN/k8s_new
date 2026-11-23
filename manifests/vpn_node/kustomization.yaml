@@ -11,13 +11,6 @@ resources:
   - 3xui/core/deployment.yaml
   - 3xui/worker/deployment.yaml
   - 3xui/heartbeat/deployment.yaml
-  - wireguard/core/pvc.yaml
-  - wireguard/core/wg-wrapper.yaml
-  - wireguard/core/deployment.yaml
-  - wireguard/core/service.yaml
-  - wireguard/worker/pvc.yaml
-  - wireguard/worker/deployment.yaml
-  - wireguard/heartbeat/deployment.yaml
 configMapGenerator:
   - name: xui-bootstrap
     files:

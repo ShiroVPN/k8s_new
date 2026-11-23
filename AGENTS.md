@@ -65,15 +65,17 @@ and exit on a bad value.
 
 - One record `vpn-nodes/<server_name>.env` per node. It holds `SERVER` (the k8s
   node name), `SERVER_NAME`, `SERVER_HOST`, `COUNTRY`, `XUI_PEERHUB_ID`,
-  `WG_PEERHUB_ID`, `WG_PORT`, `XUI_VLESS_PORT`, `XUI_AWG_PORT`,
-  `XUI_INBOUND_IDS` and `XUI_VERIFY`.
+  `XUI_VLESS_PORT`, `XUI_AWG_PORT`, `XUI_INBOUND_IDS` and `XUI_VERIFY`.
 - `run --apps vpn-node` finds the record by `SERVER=$(hostname)`. When there is
   none, it asks for the values, writes the file and applies the Application
   `$env-vpn-node-$server_name` into `shiro-vpn-$server_name`. Commit the record;
   `run` and `forward` on other machines read this directory.
-- One peerhub per connection type. The 3x-ui worker and heartbeat and the
-  WireGuard worker and heartbeat all run on every node. A peerhub has no
+- One peerhub per node: the 3x-ui worker and its heartbeat. A peerhub has no
   Application of its own.
+- Do not add a WireGuard peerhub back before `peerhub_wireguard_worker` moves to
+  shiro v2.3.0. Its `peerhub.get_config` returns a bare string, while main_api
+  validates `WgConfig | XuiConfig`, so every WireGuard peer fails to load a
+  config.
 - `overlays/vpn-node/vpn-node_config.yaml` is a tracked placeholder. Keep it in
   the kustomization and keep `.gitignore` from hiding any file the overlay
   references: a hidden file fails the whole `kustomize build` and the
@@ -82,9 +84,9 @@ and exit on a bad value.
   ConfigMap map, so the patch must carry every key the pods read. The patch also
   sets `shiro.io/config-hash` on the pod template; Argo rolls the pods when a
   record value changes. `run` must not restart pods itself.
-- One ConfigMap holds both ids: `XUI_PEERHUB_ID` and `WG_PEERHUB_ID`. The four
-  workers keep the env name `PEERHUB_ID` and read their own key through
-  `configMapKeyRef.key`. Do not split the value into a second ConfigMap.
+- `vpn-node-config` holds `XUI_PEERHUB_ID`. The worker and the heartbeat keep
+  the env name `PEERHUB_ID` and read the key through `configMapKeyRef.key`. Do
+  not split the value into a second ConfigMap.
 - The namespace comes from `spec.destination.namespace`. Do not set
   `kustomize.namespace` and do not put `namespace:` in the overlay.
 - `hostPort` is node-wide. One vpn node per server.
@@ -108,13 +110,6 @@ and exit on a bad value.
 These exist because of the host, not because of a manifest mistake. Remove them
 when the upstream or the host fixes the cause.
 
-- `wg genkey` writes nothing when its stdout is Node's pipe, so `wg-easy`
-  generated an empty key. `manifests/vpn_node/wireguard/core/wg-wrapper.yaml`
-  mounts `/usr/local/bin/wg` with a wrapper that pipes `genkey` through `cat`.
-  `detectAwg()` returns `wg`, so `PATH` wins. Keep the wrapper.
-- `wg-quick up wg0` dies with `SIGSEGV` when the wireguard module is not
-  loaded. The `load-wireguard` init container runs `modprobe wireguard` with
-  `SYS_MODULE` and the host `/lib/modules`. Keep it before `wg-easy`.
 - `gosu` hangs at PID 1 in `postgres:16`. `xui-db` runs as uid 999, gid 999
   with `fsGroup: 999`, so the entrypoint skips `gosu`. A first failed init
   leaves the volume in recovery; recreate the PVC. A PVC stuck `Terminating`
@@ -137,8 +132,8 @@ when the upstream or the host fixes the cause.
   because Argo follows the pushed commit, not the working tree.
 - `cache_images` skips `ghcr.io/shirovpn/*`: the node builds those images and
   never pulls them from a registry.
-- `forward` builds one entry per record: `xui-<name>` and `wg-easy-<name>`.
-  `password=no` panels come up only with `--all`.
+- `forward` builds one entry per record: `xui-<name>` on the local port
+  `18089 + i`. Panels marked `password=no` come up only with `--all`.
 - Give every panel one supervisor: `kubectl port-forward` exits when its pod is
   replaced, and the supervisor reconnects. A tunnel that lived 30 seconds or
   more failed on a rollout and retries in 2s; one that dies immediately is a
@@ -153,14 +148,15 @@ when the upstream or the host fixes the cause.
 ## Host requirements
 
 - 6443/tcp between the core and the agents; 8472/udp and 10250/tcp both ways.
-- 80/tcp and 443/tcp free where a vpn node runs caddy; 51820/udp for WireGuard.
-- Kernel module `wireguard`: `modprobe wireguard`. OpenVZ and LXC do not work;
-  the host needs KVM.
-- `net.ipv4.ip_forward=1` on a vpn node: wg-easy runs in hostNetwork.
+- 80/tcp and 443/tcp free where a vpn node runs caddy: the panel and the
+  subscription link answer there.
+- 2096/tcp, 22531/tcp and 51830/udp free on a vpn node: the 3x-ui subscription
+  port, the VLESS inbound and the AmneziaWG inbound publish them through
+  `hostPort`.
 - Pin `vm.max_map_count` in `/etc/sysctl.d/` for boots; `init_cluster` sets it
   for the first start.
 - Disk: prometheus 2Gi, elasticsearch 5Gi, postgres 1Gi, rabbitmq 200Mi,
-  xui 1Gi, xui-db 1Gi, caddy 100Mi, wg-easy 100Mi, peerhub 100Mi.
+  xui 1Gi, xui-db 1Gi, caddy 100Mi, peerhub 100Mi.
 - An A record for `SERVER_HOST` points at the node's public address.
 
 ## Panels
@@ -175,8 +171,7 @@ when the upstream or the host fixes the cause.
 | 18085 | RabbitMQ management | core, password from `shiro-secret` |
 | 18086 | pgAdmin | admin@example.com, password from `shiro-secret` |
 | 18088 | DbGate | admin, password from `shiro-secret` |
-| 18089 + 2i | 3x-ui of a vpn node | from `node-secret` |
-| 18090 + 2i | wg-easy of a vpn node | admin, password from `node-secret` |
+| 18089 + i | 3x-ui of a vpn node | from `node-secret` |
 
 `i` is the record's position in `vpn-nodes/` sorted by name, starting at 0.
 
