@@ -110,11 +110,16 @@ and exit on a bad value.
 These exist because of the host, not because of a manifest mistake. Remove them
 when the upstream or the host fixes the cause.
 
-- `gosu` hangs at PID 1 in `postgres:16`. `xui-db` runs as uid 999, gid 999
-  with `fsGroup: 999`, so the entrypoint skips `gosu`. A first failed init
-  leaves the volume in recovery; recreate the PVC. A PVC stuck `Terminating`
-  keeps the Application `Progressing`: delete the pod, then remove the
-  `pvc-protection` finalizer if it stays.
+- On a vpn node a container cannot send a signal: `kill -TERM` on its own child
+  returns `EPERM` as root and as uid 999, and `gosu` hangs there. Verified on
+  2026-11-23 on `798859.senko.network`.
+- Consequence for `xui-db`: the postgres entrypoint cannot stop its temporary
+  server, so a fresh `xui-db-data` never finishes its first boot, and a restart
+  on an unclean directory waits in recovery forever. Initialize such a volume
+  once out of band with `initdb` and `postgres --single`.
+- A PVC stuck `Terminating` keeps the Application `Progressing`, and with
+  `PruneLast` the sync then never prunes anything. Delete the pod that mounts
+  the claim; the finalizer releases at once.
 - Caddy binds 80/443 on the remote node. duckdns does not hold them.
 
 ## deploy.sh
