@@ -20,6 +20,18 @@ spec:
       # forwarding to the internet uses the host's net.ipv4.ip_forward.
       hostNetwork: true
       dnsPolicy: Default
+      initContainers:
+        - name: load-wireguard
+          image: ghcr.io/wg-easy/wg-easy:15.4.0
+          command: ["modprobe", "wireguard"]
+          securityContext:
+            capabilities:
+              add:
+                - SYS_MODULE
+          volumeMounts:
+            - name: modules
+              mountPath: /lib/modules
+              readOnly: true
       containers:
         - name: wg-easy
           image: ghcr.io/wg-easy/wg-easy:15.4.0
