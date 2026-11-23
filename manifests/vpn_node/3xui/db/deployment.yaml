@@ -16,6 +16,10 @@ spec:
       labels:
         app: xui-db
     spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
       containers:
         - name: xui-db
           image: postgres:16

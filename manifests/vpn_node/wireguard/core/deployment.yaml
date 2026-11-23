@@ -64,6 +64,9 @@ spec:
             - name: modules
               mountPath: /lib/modules
               readOnly: true
+            - name: wg-wrapper
+              mountPath: /usr/local/bin/wg
+              subPath: wg
           readinessProbe:
             exec:
               command: ["sh", "-c", "wg show | grep -q interface"]
@@ -80,3 +83,7 @@ spec:
         - name: modules
           hostPath:
             path: /lib/modules
+        - name: wg-wrapper
+          configMap:
+            name: wg-wrapper
+            defaultMode: 0755
