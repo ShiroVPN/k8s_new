@@ -90,6 +90,9 @@ and exit on a bad value.
 - The namespace comes from `spec.destination.namespace`. Do not set
   `kustomize.namespace` and do not put `namespace:` in the overlay.
 - `hostPort` is node-wide. One vpn node per server.
+- `2096/tcp` is in-cluster only: the `caddy` pod reaches the subscription
+  through the `xui` Service and answers it on 443. A subscription link with
+  `:2096` no longer answers from outside.
 - All vpn nodes share `secrets/vpn-node.enc.yaml`. A per-node secret is a later
   change.
 
@@ -115,9 +118,14 @@ when the upstream or the host fixes the cause.
   unconfined on `pc-omarchy`. `xui-db` therefore sets
   `securityContext.appArmorProfile: Unconfined`; without it `gosu` never
   returns, postgres never starts and the pod sits `0/1` with no log output.
-- A first boot that is interrupted leaves a volume that never recovers. Build a
-  fresh `xui-db-data` out of band as uid 999 with `initdb`, then create the
-  panel database with `postgres --single`.
+- An interrupted first boot of `xui-db` leaves WAL from one cluster beside a
+  `pg_control` from another, and every later start aborts with `could not locate
+  a valid checkpoint record`. Delete the claim and let the entrypoint build a
+  new directory; never pre-build one by hand.
+- `xui` prepares the panel database, and Kubernetes does not order it after
+  `xui-db`. The `wait-db` init container holds `configure` and `token` until
+  postgres answers, so a database that is still starting cannot leave the panel
+  without a schema.
 - A PVC stuck `Terminating` keeps the Application `Progressing`, and with
   `PruneLast` the sync then never prunes anything. Delete the pod that mounts
   the claim; the finalizer releases at once.
@@ -156,9 +164,8 @@ when the upstream or the host fixes the cause.
 - 6443/tcp between the core and the agents; 8472/udp and 10250/tcp both ways.
 - 80/tcp and 443/tcp free where a vpn node runs caddy: the panel and the
   subscription link answer there.
-- 2096/tcp, 22531/tcp and 51830/udp free on a vpn node: the 3x-ui subscription
-  port, the VLESS inbound and the AmneziaWG inbound publish them through
-  `hostPort`.
+- 22531/tcp and 51830/udp publish the VLESS and AmneziaWG inbounds through
+  `hostPort`. A `hostPort` is DNAT, so ufw neither opens nor closes it.
 - Pin `vm.max_map_count` in `/etc/sysctl.d/` for boots; `init_cluster` sets it
   for the first start.
 - Disk: prometheus 2Gi, elasticsearch 5Gi, postgres 1Gi, rabbitmq 200Mi,

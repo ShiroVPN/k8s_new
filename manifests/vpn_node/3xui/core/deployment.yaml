@@ -17,6 +17,16 @@ spec:
         app: xui
     spec:
       initContainers:
+        - name: wait-db
+          image: postgres:16
+          command:
+            - sh
+            - -c
+            - until pg_isready -h xui-db -U xui -d xui; do sleep 2; done
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
         - name: configure
           image: ghcr.io/mhsanaei/3x-ui:v3.11.0
           command:
@@ -104,7 +114,6 @@ spec:
               containerPort: 2053
             - name: subscription
               containerPort: 2096
-              hostPort: 2096
               protocol: TCP
             - name: inbound-awg
               containerPort: 51830
