@@ -13,13 +13,21 @@ rabbitmq shiro svc/rabbitmq 15672 18085 yes
 pgadmin shiro svc/pgadmin 80 18086 yes
 dbgate shiro svc/dbgate 3000 18088 yes
 EOF
-  local record name index=0
+  local record name env ns label index=0
   shopt -s nullglob
   for record in vpn-nodes/*.env; do
     name=$(basename "$record" .env)
+    env=${name##*.}
     name=${name%.*}
-    printf 'xui-%s shiro-vpn-%s svc/xui 2053 %s yes\n' \
-      "$name" "$name" "$((18089 + index))"
+    if [ "$env" = prod ]; then
+      ns="shiro-vpn-$name"
+      label="xui-$name"
+    else
+      ns="shiro-vpn-$env-$name"
+      label="xui-$env-$name"
+    fi
+    printf '%s %s svc/xui 2053 %s yes\n' \
+      "$label" "$ns" "$((18089 + index))"
     index=$((index + 1))
   done
   shopt -u nullglob

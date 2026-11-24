@@ -76,6 +76,7 @@ spec:
     targetRevision: $revision
     path: $path
     kustomize:
+      namespace: $namespace
       components:
         - ../../components/$env
 EOF
@@ -118,6 +119,9 @@ EOF
 apply_app() {
   local env=$1 app=$2 node=$3 namespace name
   namespace=$(overlay_namespace "$app")
+  if [ "$env" != prod ]; then
+    namespace="$namespace-$env"
+  fi
   name="$env-$app"
   guard_node "$name" "$node"
   print_application "$name" "overlays/$app" "$namespace" "$env" "$node" |
@@ -324,7 +328,11 @@ apply_vpn_node() {
   }
 
   app="$env-vpn-node-$server_name"
-  namespace="shiro-vpn-$server_name"
+  if [ "$env" = prod ]; then
+    namespace="shiro-vpn-$server_name"
+  else
+    namespace="shiro-vpn-$env-$server_name"
+  fi
   config_hash=$(printf '%s\n' "$server" "$server_name" "$server_host" \
     "$country" "$xui_id" "$vless_port" "$awg_port" \
     "$inbound_ids" "$verify" | sha256sum | cut -c1-16)
