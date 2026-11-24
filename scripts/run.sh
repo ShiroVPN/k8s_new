@@ -153,6 +153,11 @@ create_vpn_record() {
     echo "SERVER_NAME must be a DNS label of at most 40 characters" >&2
     exit 1
   }
+  path="vpn-nodes/$name.$env.env"
+  [ -e "$path" ] && {
+    echo "$path already exists; choose another SERVER_NAME" >&2
+    exit 1
+  }
   host=$(ask "SERVER_HOST (public DNS name of $server): ")
   [[ $host =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]] || {
     echo "SERVER_HOST must be a DNS name" >&2
@@ -181,7 +186,6 @@ create_vpn_record() {
   default_xui=$(cat /proc/sys/kernel/random/uuid)
   xui_id=$(ask "XUI_PEERHUB_ID [$default_xui]: ")
 
-  path="vpn-nodes/$name.env"
   mkdir -p vpn-nodes
   {
     echo "SERVER=$server"
@@ -234,8 +238,8 @@ validate_vpn_record() {
     echo "$path ENV must be dev or prod" >&2
     exit 1
   }
-  [ "$(basename "$path" .env)" = "$server_name" ] || {
-    echo "$path must be named $server_name.env" >&2
+  [ "$(basename "$path" .env)" = "$server_name.$record_env" ] || {
+    echo "$path must be named $server_name.$record_env.env" >&2
     exit 1
   }
   [[ $server_name =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ && ${#server_name} -le 40 ]] || {
@@ -273,11 +277,11 @@ validate_vpn_record() {
 }
 
 guard_server_ports() {
-  local server=$1 name=$2 vless=$3 awg=$4 caddy=$5 line path
+  local current=$1 server=$2 vless=$3 awg=$4 caddy=$5 line path
   local other_server other_vless other_awg other_caddy
   shopt -s nullglob
   for path in vpn-nodes/*.env; do
-    [ "$(basename "$path" .env)" = "$name" ] && continue
+    [ "$path" = "$current" ] && continue
     line=$(read_vpn_record "$path")
     IFS='|' read -r other_server _ _ _ _ _ other_vless other_awg \
       _ _ other_caddy <<<"$line"
@@ -304,6 +308,7 @@ apply_vpn_node() {
   record=$(find_vpn_record "$node" "$env")
   if [ -z "$record" ]; then
     record=$(create_vpn_record "$env" "$node")
+    [ -n "$record" ] || exit 1
   fi
 
   values=$(read_vpn_record "$record")
@@ -311,8 +316,7 @@ apply_vpn_node() {
   IFS='|' read -r server _ server_name server_host country xui_id \
     vless_port awg_port inbound_ids verify caddy <<<"$values"
 
-  guard_server_ports "$server" "$server_name" "$vless_port" "$awg_port" \
-    "$caddy"
+  guard_server_ports "$record" "$server" "$vless_port" "$awg_port" "$caddy"
 
   k get node "$server" -o name >/dev/null || {
     echo "node $server is not in the cluster; join it first" >&2
