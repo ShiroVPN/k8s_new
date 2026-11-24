@@ -146,6 +146,11 @@ spec:
                 secretKeyRef:
                   name: node-secret
                   key: XUI_SUBSCRIPTION_BASE_PATH
+            - name: SERVER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: vpn-node-config
+                  key: SERVER_HOST
             - name: XUI_TOKEN
               valueFrom:
                 secretKeyRef:

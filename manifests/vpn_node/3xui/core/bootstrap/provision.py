@@ -21,6 +21,10 @@ def sub_base() -> str:
     return "/" + os.environ["XUI_SUBSCRIPTION_BASE_PATH"].strip("/") + "/"
 
 
+def sub_uri() -> str:
+    return f"https://{os.environ['SERVER_HOST']}{sub_base()}"
+
+
 def env_list(name: str) -> list[str]:
     return [part.strip() for part in os.environ[name].split(",") if part.strip()]
 
@@ -89,15 +93,19 @@ def wait_for_panel(token: str) -> None:
             time.sleep(WAIT_SECONDS)
 
 
-def set_sub_path(token: str) -> bool:
+def set_sub_settings(token: str) -> bool:
     settings = call(token, "POST", "setting/all")
     assert isinstance(settings, dict)
     base = sub_base()
-    if settings["subPath"] == base:
+    wanted = {
+        "subPath": base,
+        "subJsonPath": base + "json/",
+        "subClashPath": base + "clash/",
+        "subURI": sub_uri(),
+    }
+    if all(settings[key] == value for key, value in wanted.items()):
         return False
-    settings["subPath"] = base
-    settings["subJsonPath"] = base + "json/"
-    settings["subClashPath"] = base + "clash/"
+    settings.update(wanted)
     call(token, "POST", "setting/update", settings)
     return True
 
@@ -122,9 +130,9 @@ def main() -> None:
         raise SystemExit("panel and subscription paths must differ")
     token = os.environ["XUI_TOKEN"]
     wait_for_panel(token)
-    path_changed = set_sub_path(token)
+    settings_changed = set_sub_settings(token)
     import_inbounds(token)
-    if path_changed:
+    if settings_changed:
         call(token, "POST", "setting/restartPanel")
     while True:
         time.sleep(3600)
