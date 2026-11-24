@@ -78,6 +78,11 @@ spec:
     kustomize:
       components:
         - ../../components/$env
+EOF
+  if [ "$name" = "$env-core" ]; then
+    printf '        - ../../components/%s-secrets\n' "$env"
+  fi
+  cat <<EOF
       patches:
         - target:
             kind: Deployment
@@ -111,10 +116,11 @@ EOF
 }
 
 apply_app() {
-  local env=$1 app=$2 node=$3 namespace
+  local env=$1 app=$2 node=$3 namespace name
   namespace=$(overlay_namespace "$app")
-  guard_node "$app" "$node"
-  print_application "$app" "overlays/$app" "$namespace" "$env" "$node" |
+  name="$env-$app"
+  guard_node "$name" "$node"
+  print_application "$name" "overlays/$app" "$namespace" "$env" "$node" |
     k apply -f -
 }
 
