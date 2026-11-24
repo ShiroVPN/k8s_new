@@ -1,5 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
+generators:
+  - ksops.yaml
 images:
   - name: ghcr.io/shirovpn/main_api_worker
     newTag: "0.2.1-dev"
@@ -9,8 +11,6 @@ images:
     newTag: "0.0.11"
   - name: ghcr.io/shirovpn/peerhub_3xui_worker
     newTag: "0.1.0"
-  - name: ghcr.io/shirovpn/peerhub_heartbeat
-    newTag: "v0.3.0"
 patches:
   - target:
       kind: Deployment
