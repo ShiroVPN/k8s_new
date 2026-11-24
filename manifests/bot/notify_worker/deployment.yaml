@@ -37,7 +37,7 @@ spec:
             - name: TELEGRAM_BOT_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: shiro-secret
+                  name: env-secret
                   key: TELEGRAM_BOT_TOKEN
             - name: API_STUB
               value: "0"

@@ -119,12 +119,17 @@ apply_app() {
 }
 
 find_vpn_record() {
-  local server=$1 path found=""
+  local server=$1 env=$2 path found=""
   shopt -s nullglob
   for path in vpn-nodes/*.env; do
-    if grep -qx "SERVER=$server" "$path"; then
+    grep -qx "SERVER=$server" "$path" || continue
+    grep -q "^ENV=" "$path" || {
+      echo "$path has no ENV; add ENV=dev or ENV=prod" >&2
+      exit 1
+    }
+    if grep -qx "ENV=$env" "$path"; then
       [ -z "$found" ] || {
-        echo "two records claim SERVER=$server: $found $path" >&2
+        echo "two records claim SERVER=$server and ENV=$env: $found $path" >&2
         exit 1
       }
       found=$path
@@ -135,7 +140,7 @@ find_vpn_record() {
 }
 
 create_vpn_record() {
-  local server=$1 name host country xui_id
+  local env=$1 server=$2 name host country xui_id vless_port awg_port caddy
   local default_xui path
   name=$(ask "SERVER_NAME (app suffix, for example de): ")
   [[ $name =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ && ${#name} -le 40 ]] || {
@@ -153,6 +158,20 @@ create_vpn_record() {
     echo "COUNTRY must be letters only" >&2
     exit 1
   }
+  vless_port=$(ask "XUI_VLESS_PORT [22531]: ")
+  vless_port=${vless_port:-22531}
+  awg_port=$(ask "XUI_AWG_PORT [51830]: ")
+  awg_port=${awg_port:-51830}
+  [[ $vless_port =~ ^[0-9]+$ && $awg_port =~ ^[0-9]+$ ]] || {
+    echo "ports must be numbers" >&2
+    exit 1
+  }
+  caddy=$(ask "CADDY [on]: ")
+  caddy=${caddy:-on}
+  [ "$caddy" = on ] || [ "$caddy" = off ] || {
+    echo "CADDY must be on or off" >&2
+    exit 1
+  }
   default_xui=$(cat /proc/sys/kernel/random/uuid)
   xui_id=$(ask "XUI_PEERHUB_ID [$default_xui]: ")
 
@@ -160,15 +179,16 @@ create_vpn_record() {
   mkdir -p vpn-nodes
   {
     echo "SERVER=$server"
+    echo "ENV=$env"
     echo "SERVER_NAME=$name"
     echo "SERVER_HOST=$host"
     echo "COUNTRY=$country"
     echo "XUI_PEERHUB_ID=${xui_id:-$default_xui}"
-    echo "XUI_VLESS_PORT=22531"
-    echo "XUI_AWG_PORT=51830"
+    echo "XUI_VLESS_PORT=$vless_port"
+    echo "XUI_AWG_PORT=$awg_port"
     echo "XUI_INBOUND_IDS=[]"
     echo "XUI_VERIFY=true"
-    echo "CADDY=on"
+    echo "CADDY=$caddy"
   } >"$path"
   echo "wrote $path" >&2
   echo "  git add $path" >&2
@@ -178,7 +198,7 @@ create_vpn_record() {
 
 read_vpn_record() {
   local path=$1 key
-  for key in SERVER SERVER_NAME SERVER_HOST COUNTRY XUI_PEERHUB_ID \
+  for key in SERVER ENV SERVER_NAME SERVER_HOST COUNTRY XUI_PEERHUB_ID \
     XUI_VLESS_PORT XUI_AWG_PORT XUI_INBOUND_IDS XUI_VERIFY CADDY; do
     grep -qE "^$key=" "$path" || {
       echo "$path has no $key" >&2
@@ -190,20 +210,24 @@ read_vpn_record() {
     # shellcheck disable=SC1090
     source "$path"
     set +a
-    printf '%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
-      "$SERVER" "$SERVER_NAME" "$SERVER_HOST" "$COUNTRY" "$XUI_PEERHUB_ID" \
-      "$XUI_VLESS_PORT" "$XUI_AWG_PORT" "$XUI_INBOUND_IDS" "$XUI_VERIFY" \
-      "$CADDY"
+    printf '%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
+      "$SERVER" "$ENV" "$SERVER_NAME" "$SERVER_HOST" "$COUNTRY" \
+      "$XUI_PEERHUB_ID" "$XUI_VLESS_PORT" "$XUI_AWG_PORT" \
+      "$XUI_INBOUND_IDS" "$XUI_VERIFY" "$CADDY"
   )
 }
 
 validate_vpn_record() {
   local path=$1 line=$2
-  local server server_name server_host country xui_id
+  local server record_env server_name server_host country xui_id
   local vless_port awg_port inbound_ids verify caddy uuid_re
-  IFS='|' read -r server server_name server_host country xui_id \
+  IFS='|' read -r server record_env server_name server_host country xui_id \
     vless_port awg_port inbound_ids verify caddy <<<"$line"
   uuid_re='^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  [ "$record_env" = dev ] || [ "$record_env" = prod ] || {
+    echo "$path ENV must be dev or prod" >&2
+    exit 1
+  }
   [ "$(basename "$path" .env)" = "$server_name" ] || {
     echo "$path must be named $server_name.env" >&2
     exit 1
@@ -242,20 +266,47 @@ validate_vpn_record() {
   }
 }
 
+guard_server_ports() {
+  local server=$1 name=$2 vless=$3 awg=$4 caddy=$5 line path
+  local other_server other_vless other_awg other_caddy
+  shopt -s nullglob
+  for path in vpn-nodes/*.env; do
+    [ "$(basename "$path" .env)" = "$name" ] && continue
+    line=$(read_vpn_record "$path")
+    IFS='|' read -r other_server _ _ _ _ _ other_vless other_awg \
+      _ _ other_caddy <<<"$line"
+    [ "$other_server" = "$server" ] || continue
+    if [ "$other_vless" = "$vless" ] || [ "$other_awg" = "$awg" ]; then
+      echo "$path holds $other_vless/tcp and $other_awg/udp on $server" >&2
+      echo "give this record other ports" >&2
+      exit 1
+    fi
+    if [ "$caddy" = on ] && [ "$other_caddy" = on ]; then
+      echo "$path already serves 80/443 on $server" >&2
+      echo "only one record per server runs caddy; set CADDY=off" >&2
+      exit 1
+    fi
+  done
+  shopt -u nullglob
+}
+
 apply_vpn_node() {
   local env=$1 node=$2 record values app namespace
   local server server_name server_host country xui_id
   local vless_port awg_port inbound_ids verify config_hash extra
 
-  record=$(find_vpn_record "$node")
+  record=$(find_vpn_record "$node" "$env")
   if [ -z "$record" ]; then
-    record=$(create_vpn_record "$node")
+    record=$(create_vpn_record "$env" "$node")
   fi
 
   values=$(read_vpn_record "$record")
   validate_vpn_record "$record" "$values"
-  IFS='|' read -r server server_name server_host country xui_id \
+  IFS='|' read -r server _ server_name server_host country xui_id \
     vless_port awg_port inbound_ids verify caddy <<<"$values"
+
+  guard_server_ports "$server" "$server_name" "$vless_port" "$awg_port" \
+    "$caddy"
 
   k get node "$server" -o name >/dev/null || {
     echo "node $server is not in the cluster; join it first" >&2
@@ -284,6 +335,29 @@ apply_vpn_node() {
                 XUI_INBOUND_IDS: "$inbound_ids"
                 XUI_VERIFY: "$verify"
                 XUI_PEERHUB_ID: "$xui_id"
+        - target:
+            kind: Deployment
+            name: xui
+          patch: |-
+            - op: test
+              path: /spec/template/spec/containers/0/name
+              value: xui
+            - op: replace
+              path: /spec/template/spec/containers/0/ports
+              value:
+                - name: panel
+                  containerPort: 2053
+                - name: subscription
+                  containerPort: 2096
+                  protocol: TCP
+                - name: inbound-awg
+                  containerPort: $awg_port
+                  hostPort: $awg_port
+                  protocol: UDP
+                - name: inbound-vless
+                  containerPort: $vless_port
+                  hostPort: $vless_port
+                  protocol: TCP
         - target:
             kind: Deployment
           patch: |-
