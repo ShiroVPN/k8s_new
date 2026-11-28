@@ -93,7 +93,7 @@ texts:
 
     Быстрый VPN прямо из Telegram:
     ⚡️ без ограничений скорости и трафика
-    🛡 протокол AmneziaWG — устойчив к блокировкам
+    🛡 протоколы VLESS и AmneziaWG — устойчивы к блокировкам
     📱 iPhone, Android, Windows и Mac
     🎁 бесплатный пробный период
 
@@ -107,6 +107,8 @@ texts:
     ℹ️ <b>О сервисе</b>
 
     Shiro — VPN по подписке: подключение за пару минут, без ограничений скорости и трафика.
+
+    📲 Подключение в приложениях Happ, Incy или AmneziaVPN.
 
     <blockquote>💳 Оплата с баланса — пополняете и выбираете тариф.
     ⏳ При продлении оставшиеся дни не сгорают.
@@ -212,7 +214,7 @@ texts:
 
     У вас нет активной подписки. Выберите тариф — и через пару минут VPN заработает.
 
-  subscription_block: "🔹 <b>{name}</b> — <b>{cost}</b>\n<blockquote>📅 {days}  ·  📱 {peers}</blockquote>"
+  subscription_block: "🔹 <b>{name}</b> — <b>{cost}</b>\n<blockquote>📅 {days}</blockquote>"
   option_button: "{name} · {cost}"
   games_intro: |-
     🎮 <b>Игры с бонусами</b>
@@ -269,7 +271,7 @@ texts:
   main_menu_no_sub: "⚪️ <b>Подписки нет</b>\nВыберите тариф — подключение займёт пару минут."
   main_menu_active: "🟢 <b>Подписка активна</b>"
   main_menu_expiring: "🟡 <b>Подписка скоро закончится</b>"
-  main_menu_subscription: "<blockquote>📦 Тариф: {name} · {peers}\n⏳ Оплачен {paid_until}</blockquote>"
+  main_menu_subscription: "<blockquote>📦 Тариф: {name}\n⏳ Оплачен {paid_until}</blockquote>"
   main_menu_balance: "💰 Баланс: <b>{balance}</b>"
 
   subscription_renewed: |-
