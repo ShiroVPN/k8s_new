@@ -342,6 +342,7 @@ buttons:
   connect: "📲 Подключиться"
   buy: "✅ Купить за {cost}"
   download_app: "⬇️ Скачать AmneziaVPN"
+  install_app: "⬇️ Как установить приложение"
   open_app: "📱 Открыть приложение"
   privacy_policy: "🔒 Политика конфиденциальности"
   user_agreement: "📄 Пользовательское соглашение"
