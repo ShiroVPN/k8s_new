@@ -193,7 +193,14 @@ when the upstream or the host fixes the cause.
 - `.github/workflows/validate.yml` builds `manifests/core`, `manifests/bot`,
   `manifests/vpn_node` and `manifests/observability`. Overlays need the SOPS
   key, so CI does not build them.
-- Test suites live in `ShiroVPN/shiro_tests`. This repo has no test Jobs.
+- `validate.yml` stays a `kustomize build` check. It runs no tests.
+- Unit tests live in `ShiroVPN/shiro` and run there. They start no Postgres,
+  RabbitMQ, Redis or 3x-ui.
+- End-to-end tests come after the Happ sprint: a workflow in this repo starts
+  a minikube cluster, deploys the apps, runs `pytest` in a Job and deletes the
+  cluster. This repo has no test Jobs yet.
+- The pipeline step "GitHub runs the tests" does not exist yet. Approval and a
+  green `validate` are the only gates on a pull request.
 
 ## Reinstall
 
