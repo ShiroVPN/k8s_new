@@ -19,12 +19,12 @@ spec:
 
       containers:
         - name: main-api-webhook
-          image: ghcr.io/shirovpn/main_api_worker:unset
+          image: ghcr.io/shirovpn/shiro:unset
 
           command:
             - /venv/bin/python
             - -m
-            - apps.webhook
+            - apps.platega_webhook
 
           ports:
             - containerPort: 8080

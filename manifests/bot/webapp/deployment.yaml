@@ -18,7 +18,7 @@ spec:
         - name: ghcr
       containers:
         - name: bot-webapp
-          image: ghcr.io/shirovpn/botv2:unset
+          image: ghcr.io/shirovpn/shiro:unset
           command:
             - /venv/bin/python
             - -m

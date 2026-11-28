@@ -18,11 +18,11 @@ spec:
         - name: ghcr
       containers:
         - name: peerhub-3xui-worker
-          image: ghcr.io/shirovpn/peerhub_3xui_worker:unset
+          image: ghcr.io/shirovpn/shiro:unset
           command:
             - /venv/bin/taskiq
             - worker
-            - apps.worker:broker
+            - apps.3xui_peerhub_worker:broker
 
           env:
             - name: BROKER_URL
