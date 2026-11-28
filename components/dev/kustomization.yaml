@@ -1,16 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 images:
-  - name: ghcr.io/shirovpn/main_api_worker
-    newName: ghcr.io/shirovpn/shiro
-    newTag: "0.0.0"
-  - name: ghcr.io/shirovpn/botv2
-    newName: ghcr.io/shirovpn/shiro
-    newTag: "0.0.0"
-  - name: ghcr.io/shirovpn/peerhub_wireguard_worker
-    newTag: "0.0.11"
-  - name: ghcr.io/shirovpn/peerhub_3xui_worker
-    newName: ghcr.io/shirovpn/shiro
+  - name: ghcr.io/shirovpn/shiro
     newTag: "0.0.0"
 patches:
   - target:
@@ -26,10 +17,6 @@ patches:
           spec:
             containers:
               - name: bot
-                command:
-                  - /venv/bin/python
-                  - -m
-                  - apps.telegram_bot
                 env:
                   - name: STUB_PAYMENT
                     value: "1"
@@ -50,10 +37,6 @@ patches:
           spec:
             containers:
               - name: bot-notify-worker
-                command:
-                  - /venv/bin/taskiq
-                  - worker
-                  - apps.telegram_bot_notify_worker:broker
                 env:
                   - name: STUB_PAYMENT
                     value: "1"
@@ -74,10 +57,6 @@ patches:
           spec:
             containers:
               - name: bot-webapp
-                command:
-                  - /venv/bin/python
-                  - -m
-                  - apps.webapp
                 env:
                   - name: STUB_PAYMENT
                     value: "1"
@@ -85,96 +64,3 @@ patches:
                     value: ""
                   - name: MINI_APP_DOMAIN
                     value: app.webhook.example.com
-  - target:
-      kind: Deployment
-      name: main-api-worker
-    patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: main-api-worker
-      spec:
-        template:
-          spec:
-            initContainers:
-              - name: migrate
-                command:
-                  - /venv/bin/alembic
-                  - -c
-                  - apps/database_migrations/alembic.ini
-                  - upgrade
-                  - head
-            containers:
-              - name: main-api-worker
-                command:
-                  - /venv/bin/taskiq
-                  - worker
-                  - apps.main_api_worker:broker
-  - target:
-      kind: Deployment
-      name: main-api-scheduler
-    patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: main-api-scheduler
-      spec:
-        template:
-          spec:
-            containers:
-              - name: main-api-scheduler
-                command:
-                  - /venv/bin/taskiq
-                  - scheduler
-                  - apps.main_scheduler:scheduler
-  - target:
-      kind: Deployment
-      name: main-api-webhook
-    patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: main-api-webhook
-      spec:
-        template:
-          spec:
-            containers:
-              - name: main-api-webhook
-                command:
-                  - /venv/bin/python
-                  - -m
-                  - apps.platega_webhook
-  - target:
-      kind: Deployment
-      name: peerhub-3xui-worker
-    patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: peerhub-3xui-worker
-      spec:
-        template:
-          spec:
-            containers:
-              - name: peerhub-3xui-worker
-                command:
-                  - /venv/bin/taskiq
-                  - worker
-                  - apps.3xui_peerhub_worker:broker
-  - target:
-      kind: Deployment
-      name: peerhub-3xui-heartbeat
-    patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: peerhub-3xui-heartbeat
-      spec:
-        template:
-          spec:
-            containers:
-              - name: peerhub-3xui-heartbeat
-                command:
-                  - /venv/bin/python
-                  - -m
-                  - apps.3xui_peerhub_heartbeat

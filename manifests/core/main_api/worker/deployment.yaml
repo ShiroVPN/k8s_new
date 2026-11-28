@@ -19,8 +19,13 @@ spec:
 
       initContainers:
         - name: migrate
-          image: ghcr.io/shirovpn/main_api_worker:unset
-          command: ["/venv/bin/alembic", "upgrade", "head"]
+          image: ghcr.io/shirovpn/shiro:unset
+          command:
+            - /venv/bin/alembic
+            - -c
+            - apps/database_migrations/alembic.ini
+            - upgrade
+            - head
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -30,11 +35,11 @@ spec:
 
       containers:
         - name: main-api-worker
-          image: ghcr.io/shirovpn/main_api_worker:unset
+          image: ghcr.io/shirovpn/shiro:unset
           command:
             - /venv/bin/taskiq
             - worker
-            - apps.worker:broker
+            - apps.main_api_worker:broker
 
           env:
             - name: DATABASE_URL

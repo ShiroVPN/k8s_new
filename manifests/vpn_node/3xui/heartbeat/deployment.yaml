@@ -18,11 +18,11 @@ spec:
         - name: ghcr
       containers:
         - name: peerhub-3xui-heartbeat
-          image: ghcr.io/shirovpn/peerhub_3xui_worker:unset
+          image: ghcr.io/shirovpn/shiro:unset
           command:
             - /venv/bin/python
             - -m
-            - apps.heartbeat
+            - apps.3xui_peerhub_heartbeat
           env:
             - name: BROKER_URL
               valueFrom:

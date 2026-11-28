@@ -18,11 +18,11 @@ spec:
         - name: ghcr
       containers:
         - name: bot-notify-worker
-          image: ghcr.io/shirovpn/botv2:unset
+          image: ghcr.io/shirovpn/shiro:unset
           command:
             - /venv/bin/taskiq
             - worker
-            - apps.notify_worker.broker:broker
+            - apps.telegram_bot_notify_worker:broker
           env:
             - name: BROKER_URL
               valueFrom:

@@ -18,11 +18,11 @@ spec:
         - name: ghcr
       containers:
         - name: main-api-scheduler
-          image: ghcr.io/shirovpn/main_api_worker:unset
+          image: ghcr.io/shirovpn/shiro:unset
           command:
             - /venv/bin/taskiq
             - scheduler
-            - apps.scheduler:scheduler
+            - apps.main_scheduler:scheduler
 
           env:
             - name: DATABASE_URL
